@@ -1,0 +1,6 @@
+Coloque o arquivo do vídeo nesta pasta com o nome exato:
+
+video1.mp4
+
+Exemplo:
+static/videos/video1.mp4

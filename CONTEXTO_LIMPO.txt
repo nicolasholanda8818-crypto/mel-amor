@@ -1,0 +1,66 @@
+PROJETO: SITE DE ANIVERSÁRIO ROMÂNTICO - UNIVERSO DA MEL
+
+INFORMAÇÕES DA NAMORADA
+
+Nome: Mary Marcelle de Lima Murinelly
+Apelido: Mel
+Aniversário: 02 de junho
+Idade: 20 anos
+
+Personalidade:
+- muito engraçada
+- inteligente
+- muito fofa
+- muito carinhosa
+- princesa
+
+Cantor favorito:
+- Luan Santana
+
+INFORMAÇÕES DO RELACIONAMENTO
+
+Data do namoro:
+14/11/2025
+
+Primeira viagem:
+Morro Branco
+
+OBJETIVO
+
+Criar um site de aniversário extremamente marcante, inesquecível e emocional para a Mel.
+
+O usuário é iniciante absoluto em programação, possui dislexia e TDAH, nunca criou um site antes.
+
+As explicações devem ser extremamente detalhadas, como se alguém estivesse sentado ao lado dele apontando para a tela.
+
+REQUISITOS DO SITE
+
+Tema:
+- universo
+- galáxia
+- cinematográfico
+- romântico
+- rosa e preto
+- brilhos
+- estrelas
+
+O site deve ter:
+- música de fundo
+- botão "Entrar ❤"
+- música começa ao clicar
+- galeria com mínimo 3 fotos
+- vídeo
+- quiz
+- cronograma do relacionamento
+- corações 3D flutuando
+- animações
+- design responsivo
+- funcionar no celular
+- animação de galáxia 3D
+- usar Three.js
+- mensagem final emocionante
+- introdução cinematográfica
+
+MENSAGEM FINAL
+
+Mel, em um universo tão grande, minha maior sorte foi encontrar você. Cada momento ao seu lado virou uma lembrança que eu quero guardar para sempre. Feliz aniversário, princesa ❤

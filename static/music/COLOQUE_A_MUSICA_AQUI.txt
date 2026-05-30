@@ -1,0 +1,6 @@
+Coloque o arquivo da música nesta pasta com o nome exato:
+
+musica.mp3
+
+Exemplo:
+static/music/musica.mp3

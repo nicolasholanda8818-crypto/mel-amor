@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mary Marcelle - Nosso Universo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@300;400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <canvas id="galaxyCanvas" aria-hidden="true"></canvas>
+
+    <audio id="loveSong" loop preload="auto">
+      <source src="{{ url_for('static', filename='music/musica.mp3') }}" type="audio/mpeg" />
+    </audio>
+
+    <section class="intro" id="intro">
+      <div class="intro__spark"></div>
+      <p class="intro__eyebrow">02 de junho</p>
+      <h1>Mary Marcelle</h1>
+      <p>Bem-vinda ao nosso universo ✨</p>
+      <button class="enter-button" id="enterButton" type="button">
+        <span>Entrar</span>
+        <span aria-hidden="true">❤</span>
+      </button>
+    </section>
+
+    <main class="site-shell hidden" id="siteShell">
+      <section class="hero section-panel">
+        <div class="hero__content">
+          <p class="section-kicker">Universo da Mel</p>
+          <h2>Feliz aniversário, princesa</h2>
+          <p>
+            Feliz aniversário, meu amor! Hoje é um dia especial porque celebra
+            a chegada da pessoa que tornou minha vida mais feliz, leve e cheia
+            de significado. Sou muito grato por ter você ao meu lado, por cada
+            sorriso, cada conversa, cada momento compartilhado. Que seu novo
+            ciclo venha cheio de alegria, saúde, conquistas e sonhos realizados.
+            Você merece tudo o que existe de mais bonito no mundo. Te amo e
+            espero continuar construindo muitas lembranças incríveis ao seu lado.
+            Parabéns, meu amor! ❤️
+          </p>
+        </div>
+        <button class="orbit-card" id="melHeartButton" type="button" aria-label="Explodir coração da Mel">
+          <div class="orbit-card__ring"></div>
+          <div class="orbit-card__heart">❤</div>
+          <div class="orbit-card__name">Mel ❤</div>
+          <div class="orbit-card__hint">Clique no coração</div>
+        </button>
+      </section>
+
+      <section class="timeline section-panel" id="timeline">
+        <p class="section-kicker">Nossa história</p>
+        <h2>Cronograma do relacionamento</h2>
+        <div class="counter-grid" aria-live="polite">
+          <article class="counter-card">
+            <span>❤️ Dias</span>
+            <strong id="counterDays">0</strong>
+          </article>
+          <article class="counter-card">
+            <span>🌙 Horas</span>
+            <strong id="counterHours">0</strong>
+          </article>
+          <article class="counter-card">
+            <span>⭐ Minutos</span>
+            <strong id="counterMinutes">0</strong>
+          </article>
+          <article class="counter-card">
+            <span>✨ Segundos</span>
+            <strong id="counterSeconds">0</strong>
+          </article>
+        </div>
+        <p class="counter-summary" id="relationshipCounter">calculando...</p>
+        <div class="timeline__items">
+          <article class="timeline__item">
+            <span class="floating-heart">❤</span>
+            <strong>Início do namoro</strong>
+            <p>14/11/2025</p>
+          </article>
+          <article class="timeline__item">
+            <span class="floating-heart">❤</span>
+            <strong>Primeira viagem</strong>
+            <p>Morro Branco</p>
+          </article>
+          <article class="timeline__item">
+            <span class="floating-heart">❤</span>
+            <strong>Aniversário da Mel</strong>
+            <p>02 de junho, o dia da minha princesa.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="gallery section-panel" id="gallery">
+        <p class="section-kicker">Memórias reais</p>
+        <h2>Galeria do nosso amor</h2>
+        <div class="gallery__stage" id="galleryStage">
+          {% for photo in photos %}
+          <figure class="polaroid {% if loop.first %}active{% endif %}">
+            <img src="{{ url_for('static', filename=photo) }}" alt="Memória especial {{ loop.index }} da Mel" />
+            <figcaption>Memória {{ loop.index }} do nosso universo.</figcaption>
+          </figure>
+          {% endfor %}
+        </div>
+        <div class="gallery-controls" aria-label="Controles da galeria">
+          <button class="gallery-button" id="previousPhoto" type="button" aria-label="Foto anterior">‹</button>
+          <span id="galleryCounter">1 / {{ photos|length }}</span>
+          <button class="gallery-button" id="nextPhoto" type="button" aria-label="Próxima foto">›</button>
+        </div>
+      </section>
+
+      <section class="video-section section-panel" id="video">
+        <p class="section-kicker">Nossos Vídeos 🎥</p>
+        <h2>Nossos Vídeos 🎥</h2>
+        <div class="video-grid">
+          {% for video in videos %}
+          <article class="video-card">
+            <video class="love-video" controls preload="metadata" {% if photos %}poster="{{ url_for('static', filename=photos[0]) }}"{% endif %}>
+              <source src="{{ url_for('static', filename=video) }}" type="video/mp4" />
+              Seu navegador não conseguiu abrir o vídeo.
+            </video>
+            <p>Vídeo {{ loop.index }} do nosso amor.</p>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="quiz section-panel" id="quiz">
+        <p class="section-kicker">Quiz</p>
+        <h2>Nossa primeira viagem foi para:</h2>
+        <div class="quiz__buttons">
+          <button class="quiz-option" type="button" data-correct="false">Paris</button>
+          <button class="quiz-option" type="button" data-correct="true">Morro Branco</button>
+        </div>
+        <p class="quiz__answer" id="quizAnswer" aria-live="polite"></p>
+      </section>
+
+      <section class="cake section-panel" id="cake">
+        <p class="section-kicker">Parabéns</p>
+        <h2>Um bolo para a Mel</h2>
+        <div class="cake__scene" aria-label="Bolo animado com vela">
+          <div class="smoke smoke--one"></div>
+          <div class="smoke smoke--two"></div>
+          <div class="candle" id="candle">
+            <div class="flame" id="flame"></div>
+          </div>
+          <div class="cake__top"></div>
+          <div class="cake__middle"></div>
+          <div class="cake__bottom"></div>
+        </div>
+        <button class="wish-button" id="wishButton" type="button">Assoprar vela 🎂</button>
+        <p class="wish-message" id="wishMessage" aria-live="polite"></p>
+      </section>
+
+      <section class="final-message section-panel" id="message">
+        <p class="section-kicker">Mensagem final</p>
+        <h2>Para você, Mel</h2>
+        <p class="typewriter-message" id="typewriterMessage"></p>
+        <p class="forever-message hidden" id="foreverMessage">Para sempre nós 🌌❤️</p>
+      </section>
+    </main>
+
+    <div class="heart-rain" id="heartRain" aria-hidden="true"></div>
+    <div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
+    <div class="heart-fragments" id="heartFragments" aria-hidden="true"></div>
+    <div class="heart-toast" id="heartToast" aria-live="polite"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  </body>
+</html>
