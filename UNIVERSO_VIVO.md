@@ -18,6 +18,19 @@ Ela mantém:
 - bot romântico;
 - jogos;
 - coração interativo;
+- constelações personalizadas;
+- Planeta Mel;
+- mural de memórias;
+- mensagem em áudio;
+- rosas e presentes escondidos;
+- conquistas;
+- transições espaciais;
+- mapa do amor;
+- filme do relacionamento;
+- livro digital;
+- cápsula do tempo;
+- cartinha interativa;
+- eventos automáticos para datas especiais;
 - painel administrativo em `/admin`.
 
 ## Memória histórica
@@ -44,7 +57,11 @@ Por ele é possível adicionar:
 
 - fotos;
 - vídeos;
+- áudios;
+- memórias no mural;
 - eventos do calendário;
+- capítulos do livro;
+- cápsulas do tempo;
 - mensagens no diário.
 
 ## Observação sobre Vercel

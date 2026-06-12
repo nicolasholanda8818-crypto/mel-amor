@@ -32,6 +32,47 @@
       {% endif %}
       {% endwith %}
 
+      <section class="admin-card">
+        <h2>Central de personalização</h2>
+        <form action="{{ url_for('update_settings') }}" method="post" enctype="multipart/form-data">
+          <label>Cor principal <input name="primary_color" type="color" value="{{ settings.primary_color }}" /></label>
+          <label>Cor secundária <input name="accent_color" type="color" value="{{ settings.accent_color }}" /></label>
+          <label>Cor de brilho <input name="gold_color" type="color" value="{{ settings.gold_color }}" /></label>
+          <label>Texto de entrada <input name="intro_text" value="{{ settings.intro_text }}" /></label>
+          <label>Texto principal <textarea name="hero_text">{{ settings.hero_text }}</textarea></label>
+          <label>Música principal <input name="music_file" type="file" accept="audio/*" /></label>
+          <button class="wish-button" type="submit">Salvar personalização</button>
+        </form>
+      </section>
+
+      <section class="admin-card">
+        <h2>Perfis</h2>
+        <div class="profile-admin-grid">
+          {% for profile in profiles %}
+          <form action="{{ url_for('update_profile', profile_id=profile.id) }}" method="post" enctype="multipart/form-data">
+            <strong>{{ profile.name }}</strong>
+            <label>Cor <input name="color" type="color" value="{{ profile.color }}" /></label>
+            <label>Foto <input name="photo" type="file" accept="image/*" /></label>
+            {% if profile.photo_filename %}
+            <img src="{{ asset_url(profile.photo_filename) }}" alt="{{ profile.name }}" />
+            {% endif %}
+            <button class="wish-button" type="submit">Salvar perfil</button>
+          </form>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Backup JSON</h2>
+        <div class="backup-actions">
+          <a class="admin-link" href="{{ url_for('export_backup') }}">Exportar backup</a>
+          <form action="{{ url_for('restore_backup') }}" method="post" enctype="multipart/form-data">
+            <label>Restaurar backup <input name="backup" type="file" accept="application/json" required /></label>
+            <button class="wish-button" type="submit">Restaurar JSON</button>
+          </form>
+        </div>
+      </section>
+
       <section class="admin-grid">
         <article class="admin-card">
           <h2>Adicionar foto</h2>
@@ -56,12 +97,55 @@
         </article>
 
         <article class="admin-card">
+          <h2>Adicionar áudio</h2>
+          <form action="{{ url_for('add_audio') }}" method="post" enctype="multipart/form-data">
+            <label>Título <input name="title" placeholder="Mensagem do Nicolas" /></label>
+            <label>Legenda <input name="caption" placeholder="Uma mensagem em áudio para a Mel." /></label>
+            <label>Data <input name="message_date" type="date" value="{{ today }}" /></label>
+            <label>Arquivo <input name="file" type="file" accept="audio/*" required /></label>
+            <button class="wish-button" type="submit">Adicionar áudio</button>
+          </form>
+        </article>
+
+        <article class="admin-card">
+          <h2>Adicionar memória ao mural</h2>
+          <form action="{{ url_for('add_mural_memory') }}" method="post" enctype="multipart/form-data">
+            <label>Título <input name="title" placeholder="Nossa primeira viagem" /></label>
+            <label>Local <input name="place" placeholder="Morro Branco" /></label>
+            <label>Descrição <textarea name="description" placeholder="Nossa primeira viagem juntos ❤️"></textarea></label>
+            <label>Data <input name="memory_date" type="date" value="{{ today }}" /></label>
+            <label>Foto <input name="file" type="file" accept="image/*" /></label>
+            <button class="wish-button" type="submit">Adicionar ao mural</button>
+          </form>
+        </article>
+
+        <article class="admin-card">
           <h2>Adicionar evento</h2>
           <form action="{{ url_for('add_event') }}" method="post">
             <label>Título <input name="title" required placeholder="Novo momento importante" /></label>
             <label>Descrição <textarea name="description" required placeholder="Conte o que aconteceu."></textarea></label>
             <label>Data <input name="event_date" type="date" value="{{ today }}" required /></label>
             <button class="wish-button" type="submit">Adicionar evento</button>
+          </form>
+        </article>
+
+        <article class="admin-card">
+          <h2>Adicionar capítulo</h2>
+          <form action="{{ url_for('add_chapter') }}" method="post">
+            <label>Ordem <input name="chapter_order" type="number" min="1" placeholder="5" /></label>
+            <label>Título <input name="title" required placeholder="Capítulo 5 - Nova aventura ❤️" /></label>
+            <label>Texto <textarea name="body" required placeholder="Escreva o capítulo."></textarea></label>
+            <button class="wish-button" type="submit">Adicionar capítulo</button>
+          </form>
+        </article>
+
+        <article class="admin-card">
+          <h2>Criar cápsula do tempo</h2>
+          <form action="{{ url_for('add_time_capsule') }}" method="post">
+            <label>Título <input name="title" placeholder="Carta para 02/06/2027" /></label>
+            <label>Abrir em <input name="open_date" type="date" value="2027-06-02" /></label>
+            <label>Mensagem <textarea name="message" required placeholder="Mensagem para o futuro."></textarea></label>
+            <button class="wish-button" type="submit">Criar cápsula</button>
           </form>
         </article>
       </section>
@@ -105,6 +189,44 @@
       </section>
 
       <section class="admin-card">
+        <h2>Áudios salvos</h2>
+        <div class="admin-list">
+          {% for audio in audio_messages %}
+          <article>
+            <audio src="{{ asset_url(audio.filename) }}" controls></audio>
+            <div>
+              <strong>{{ audio.title }}</strong>
+              <p>{{ audio.caption }}</p>
+              <small>{{ audio.message_date }}</small>
+            </div>
+            <form action="{{ url_for('delete_item', kind='audio', item_id=audio.id) }}" method="post">
+              <button type="submit">Excluir</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Mural de memórias</h2>
+        <div class="admin-list">
+          {% for memory in mural_entries %}
+          <article>
+            <img src="{{ asset_url(memory.filename) }}" alt="{{ memory.title }}" />
+            <div>
+              <strong>{{ memory.title }}</strong>
+              <p>{{ memory.place }} - {{ memory.description }}</p>
+              <small>{{ memory.memory_date }}</small>
+            </div>
+            <form action="{{ url_for('delete_item', kind='mural', item_id=memory.id) }}" method="post">
+              <button type="submit">Excluir</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-card">
         <h2>Eventos</h2>
         <div class="admin-list admin-list--text">
           {% for event in events %}
@@ -133,6 +255,41 @@
               <small>{{ entry.entry_date }}</small>
             </div>
             <form action="{{ url_for('delete_item', kind='diary', item_id=entry.id) }}" method="post">
+              <button type="submit">Excluir</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Capítulos</h2>
+        <div class="admin-list admin-list--text">
+          {% for chapter in chapters %}
+          <article>
+            <div>
+              <strong>{{ chapter.chapter_order }}. {{ chapter.title }}</strong>
+              <p>{{ chapter.body }}</p>
+            </div>
+            <form action="{{ url_for('delete_item', kind='chapter', item_id=chapter.id) }}" method="post">
+              <button type="submit">Excluir</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Cápsulas do tempo</h2>
+        <div class="admin-list admin-list--text">
+          {% for capsule in capsules %}
+          <article>
+            <div>
+              <strong>{{ capsule.title }}</strong>
+              <p>{{ capsule.message }}</p>
+              <small>{{ capsule.open_date }}</small>
+            </div>
+            <form action="{{ url_for('delete_item', kind='capsule', item_id=capsule.id) }}" method="post">
               <button type="submit">Excluir</button>
             </form>
           </article>

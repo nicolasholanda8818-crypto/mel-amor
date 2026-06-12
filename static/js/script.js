@@ -28,6 +28,8 @@ const calendarTitle = document.querySelector("#calendarTitle");
 const calendarGrid = document.querySelector("#calendarGrid");
 const prevMonth = document.querySelector("#prevMonth");
 const nextMonth = document.querySelector("#nextMonth");
+const prevYear = document.querySelector("#prevYear");
+const nextYear = document.querySelector("#nextYear");
 const backToPresent = document.querySelector("#backToPresent");
 const timeMachine = document.querySelector("#timeMachine");
 const botPhrase = document.querySelector("#botPhrase");
@@ -41,6 +43,30 @@ const shootArrow = document.querySelector("#shootArrow");
 const targetHeart = document.querySelector("#targetHeart");
 const arrowsLeft = document.querySelector("#arrowsLeft");
 const cupidoMessage = document.querySelector("#cupidoMessage");
+const planetMel = document.querySelector("#planetMel");
+const planetPanel = document.querySelector("#planetPanel");
+const playAudioMessage = document.querySelector("#playAudioMessage");
+const nicolasAudio = document.querySelector("#nicolasAudio");
+const soundWaves = document.querySelector("#soundWaves");
+const playFilm = document.querySelector("#playFilm");
+const filmCounter = document.querySelector("#filmCounter");
+const loveEnvelope = document.querySelector("#loveEnvelope");
+const letterType = document.querySelector("#letterType");
+const letterFinal = document.querySelector("#letterFinal");
+const spacePortal = document.querySelector("#spacePortal");
+const giftPanel = document.querySelector("#giftPanel");
+const giftText = document.querySelector("#giftText");
+const currentDateLabel = document.querySelector("#currentDateLabel");
+const currentTimeLabel = document.querySelector("#currentTimeLabel");
+const dayNightLabel = document.querySelector("#dayNightLabel");
+const statsDays = document.querySelector("#statsDays");
+const statsHours = document.querySelector("#statsHours");
+const statsMinutes = document.querySelector("#statsMinutes");
+const specialDayPanel = document.querySelector("#specialDayPanel");
+const specialDayTitle = document.querySelector("#specialDayTitle");
+const specialDayMessage = document.querySelector("#specialDayMessage");
+const specialDayCake = document.querySelector("#specialDayCake");
+const specialDayLoveLetter = document.querySelector("#specialDayLoveLetter");
 
 const relationshipStart = new Date(2025, 10, 14, 0, 0, 0);
 const finalText =
@@ -53,12 +79,25 @@ const finalText =
   "Nicolas e Mel para sempre ❤️✨";
 
 const botPhrases = [
+  "Ei Mel, tem uma surpresa para você ❤️",
   "Hoje é um ótimo dia para criar uma memória ❤",
   "Não esqueçam de registrar um momento especial ✨",
+  "Mimi guardou uma frase bonita para vocês.",
   "O universo fica mais bonito quando vocês estão juntos.",
   "Uma foto de hoje pode virar uma saudade linda amanhã.",
   "Cuidem do amor como quem cuida de uma estrela rara.",
 ];
+
+const rosePhrases = [
+  "Você é meu lugar favorito ❤️",
+  "Seu sorriso deixa meu universo aceso.",
+  "Com você, todo caminho vira casa.",
+  "Meu carinho sempre encontra você.",
+];
+
+const letterText =
+  "Mel, se este envelope chegou até você, é porque existe uma parte do meu coração morando aqui. " +
+  "Eu amo cada detalhe nosso, cada risada, cada viagem, cada conversa e cada sonho que a gente ainda vai viver.";
 
 let currentPhoto = 0;
 let galleryTimer = null;
@@ -70,6 +109,10 @@ let huntFound = 0;
 let arrows = 3;
 let flippedCards = [];
 let matchedCards = 0;
+let currentFilm = 0;
+let filmTimer = null;
+let letterStarted = false;
+let activeSpecialDayKey = "";
 
 function startExperience() {
   intro.classList.add("intro--open");
@@ -77,6 +120,7 @@ function startExperience() {
   startMusic();
   startGallery();
   updateRelationshipCounter();
+  updateRealClock();
   burstHearts(26);
 
   setTimeout(() => {
@@ -148,6 +192,9 @@ function updateRelationshipCounter() {
     relationshipCounter.textContent =
       `Desde 14/11/2025: ${days} dias, ${hours} horas, ${minutes} minutos e ${seconds} segundos.`;
   }
+  if (statsDays) statsDays.textContent = days;
+  if (statsHours) statsHours.textContent = Math.floor(totalSeconds / 3600);
+  if (statsMinutes) statsMinutes.textContent = Math.floor(totalSeconds / 60);
 }
 
 function burstHearts(amount = 18) {
@@ -178,6 +225,129 @@ function throwConfetti(amount = 80) {
   }
 }
 
+function showToast(message) {
+  if (!heartToast) return;
+  heartToast.textContent = message;
+  heartToast.classList.add("heart-toast--show");
+  setTimeout(() => heartToast.classList.remove("heart-toast--show"), 3200);
+}
+
+function unlockAchievement(key) {
+  if (!key) return;
+  const unlocked = new Set(JSON.parse(localStorage.getItem("universeAchievements") || "[]"));
+  unlocked.add(key);
+  localStorage.setItem("universeAchievements", JSON.stringify([...unlocked]));
+  document.querySelectorAll(`[data-achievement="${key}"]`).forEach((card) => {
+    card.classList.add("unlocked");
+  });
+}
+
+function hydrateAchievements() {
+  const unlocked = new Set(JSON.parse(localStorage.getItem("universeAchievements") || "[]"));
+  document.querySelectorAll("[data-achievement]").forEach((card) => {
+    if (unlocked.has(card.dataset.achievement)) {
+      card.classList.add("unlocked");
+    }
+  });
+}
+
+function showPortal(callback) {
+  if (!spacePortal) {
+    callback();
+    return;
+  }
+  spacePortal.classList.add("space-portal--show");
+  setTimeout(callback, 360);
+  setTimeout(() => spacePortal.classList.remove("space-portal--show"), 920);
+}
+
+function detectSpecialDay(now) {
+  const monthDay = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayKey = now.toISOString().slice(0, 10);
+  const registeredEvent = (window.UNIVERSE_DATA?.eventDetails || []).find((event) => event.event_date === todayKey);
+
+  if (monthDay === "06-02") {
+    return {
+      key: `birthday-${todayKey}`,
+      type: "birthday",
+      title: "Aniversário da Mel",
+      message: "Hoje o universo fica mais rosa, com bolo, confetes e carinho para a Mel.",
+    };
+  }
+
+  if (monthDay === "06-12") {
+    return {
+      key: `love-day-${todayKey}`,
+      type: "love_day",
+      title: "Dia dos Namorados",
+      message: "Hoje o universo acende corações extras e uma carta especial para Nicolas e Mel.",
+    };
+  }
+
+  if (registeredEvent) {
+    return {
+      key: `event-${registeredEvent.id}-${todayKey}`,
+      type: "event",
+      title: registeredEvent.title,
+      message: registeredEvent.description,
+    };
+  }
+
+  return null;
+}
+
+function applySpecialDay(specialDay) {
+  document.body.classList.remove("special-birthday", "special-love_day", "special-event");
+  if (!specialDay) {
+    specialDayPanel?.classList.add("hidden");
+    activeSpecialDayKey = "";
+    return;
+  }
+
+  specialDayPanel?.classList.remove("hidden");
+  document.body.classList.add(`special-${specialDay.type}`);
+  if (specialDayTitle) specialDayTitle.textContent = specialDay.title;
+  if (specialDayMessage) specialDayMessage.textContent = specialDay.message;
+  specialDayCake?.classList.toggle("hidden", specialDay.type !== "birthday");
+  specialDayLoveLetter?.classList.toggle("hidden", specialDay.type !== "love_day");
+
+  if (activeSpecialDayKey !== specialDay.key) {
+    activeSpecialDayKey = specialDay.key;
+    setTimeout(() => {
+      burstHearts(specialDay.type === "love_day" ? 70 : 48);
+      throwConfetti(specialDay.type === "birthday" ? 90 : 36);
+    }, 700);
+  }
+}
+
+function updateRealClock() {
+  const now = new Date();
+  const hour = now.getHours();
+  const isDay = hour >= 6 && hour < 18;
+
+  if (currentDateLabel) {
+    currentDateLabel.textContent = now.toLocaleDateString("pt-BR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+  if (currentTimeLabel) {
+    currentTimeLabel.textContent = now.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
+  if (dayNightLabel) {
+    dayNightLabel.textContent = isDay ? "Modo dia" : "Modo noite";
+  }
+
+  document.body.classList.toggle("day-mode", isDay);
+  document.body.classList.toggle("night-mode", !isDay);
+  applySpecialDay(detectSpecialDay(now));
+}
+
 function explodeMelHeart() {
   if (!melHeartButton) {
     return;
@@ -187,8 +357,7 @@ function explodeMelHeart() {
   void melHeartButton.offsetWidth;
   melHeartButton.classList.add("orbit-card--explode");
 
-  heartToast.textContent = "Meu coração se apaixonou pelo seu ❤️";
-  heartToast.classList.add("heart-toast--show");
+  showToast("Meu coração se apaixonou pelo seu ❤️");
 
   const rect = melHeartButton.getBoundingClientRect();
   const originX = rect.left + rect.width / 2;
@@ -216,7 +385,7 @@ function explodeMelHeart() {
 
   burstHearts(100);
   setTimeout(() => melHeartButton.classList.remove("orbit-card--explode"), 1100);
-  setTimeout(() => heartToast.classList.remove("heart-toast--show"), 3200);
+  unlockAchievement("memory-master");
 }
 
 function answerQuiz(event) {
@@ -461,6 +630,7 @@ function shootCupidArrow() {
 
   if (arrows === 0) {
     cupidoMessage.textContent = "Desde o primeiro momento, meu coração escolheu você ❤ Nicolas e Mel para sempre ❤";
+    unlockAchievement("heart-guardian");
     for (let index = 0; index < 80; index += 1) {
       const rain = document.createElement("span");
       rain.className = "rain-heart couple-rain";
@@ -475,6 +645,177 @@ function shootCupidArrow() {
   }
 
   setTimeout(() => targetHeart.classList.remove("target-hit"), 900);
+}
+
+function initConstellations() {
+  document.querySelectorAll(".constellation-card").forEach((button) => {
+    button.addEventListener("click", () => {
+      showToast("Em meio a bilhões de estrelas, encontrei você.");
+      button.classList.add("constellation-card--active");
+      burstHearts(24);
+      unlockAchievement("galaxy-explorer");
+      setTimeout(() => button.classList.remove("constellation-card--active"), 900);
+    });
+  });
+}
+
+function openPlanetMel() {
+  if (!planetPanel || !planetMel) return;
+  planetPanel.classList.toggle("hidden");
+  planetMel.classList.add("planet-mel--active");
+  showToast("Habitado pela princesa mais linda do universo ❤️");
+  throwConfetti(28);
+  setTimeout(() => planetMel.classList.remove("planet-mel--active"), 1100);
+}
+
+function initSecrets() {
+  document.querySelectorAll(".rose-button").forEach((rose) => {
+    rose.addEventListener("click", () => {
+      showToast(rosePhrases[Math.floor(Math.random() * rosePhrases.length)]);
+      rose.classList.add("secret-found");
+      burstHearts(12);
+    });
+  });
+
+  document.querySelectorAll(".gift-button").forEach((gift) => {
+    gift.addEventListener("click", () => {
+      const message = gift.dataset.gift || "Uma lembrança linda apareceu.";
+      showToast(message);
+      if (giftPanel && giftText) {
+        giftText.textContent = message;
+        giftPanel.classList.remove("hidden");
+        giftPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      gift.classList.add("secret-found");
+      throwConfetti(30);
+    });
+  });
+}
+
+function toggleAudioMessage() {
+  if (!nicolasAudio) return;
+  if (nicolasAudio.paused) {
+    nicolasAudio.play().then(() => {
+      soundWaves?.classList.add("sound-waves--active");
+      unlockAchievement("memory-master");
+    }).catch(() => showToast("Toque novamente para liberar o áudio."));
+  } else {
+    nicolasAudio.pause();
+    soundWaves?.classList.remove("sound-waves--active");
+  }
+}
+
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds)) return "0:00";
+  const minutes = Math.floor(seconds / 60);
+  const rest = Math.floor(seconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${rest}`;
+}
+
+function initVoiceMessages() {
+  document.querySelectorAll(".voice-audio").forEach((audio) => {
+    const card = audio.closest(".audio-player-card");
+    const durationLabel = card?.querySelector(".audio-duration");
+    audio.addEventListener("loadedmetadata", () => {
+      if (durationLabel) durationLabel.textContent = `Duração: ${formatDuration(audio.duration)}`;
+    });
+    audio.addEventListener("ended", () => {
+      card?.querySelector(".sound-waves")?.classList.remove("sound-waves--active");
+      card?.querySelector(".voice-play")?.classList.remove("is-playing");
+    });
+  });
+
+  document.querySelectorAll(".voice-play").forEach((button) => {
+    button.addEventListener("click", () => {
+      const audio = document.getElementById(button.dataset.audioTarget);
+      const card = button.closest(".audio-player-card");
+      if (!audio) return;
+
+      document.querySelectorAll(".voice-audio").forEach((item) => {
+        if (item !== audio) item.pause();
+      });
+      document.querySelectorAll(".sound-waves").forEach((waves) => waves.classList.remove("sound-waves--active"));
+      document.querySelectorAll(".voice-play").forEach((item) => item.classList.remove("is-playing"));
+
+      if (audio.paused) {
+        audio.play().then(() => {
+          card?.querySelector(".sound-waves")?.classList.add("sound-waves--active");
+          button.classList.add("is-playing");
+          unlockAchievement("memory-master");
+        }).catch(() => showToast("Toque novamente para liberar o áudio."));
+      } else {
+        audio.pause();
+        card?.querySelector(".sound-waves")?.classList.remove("sound-waves--active");
+        button.classList.remove("is-playing");
+      }
+    });
+  });
+}
+
+function showFilmSlide(index) {
+  const slides = Array.from(document.querySelectorAll(".film-slide"));
+  if (!slides.length) return;
+
+  slides.forEach((slide) => {
+    slide.classList.remove("active");
+    slide.querySelector("video")?.pause();
+  });
+  currentFilm = (index + slides.length) % slides.length;
+  const activeSlide = slides[currentFilm];
+  activeSlide.classList.add("active");
+  const video = activeSlide.querySelector("video");
+  if (video) {
+    video.currentTime = 0;
+    video.play().catch(() => {});
+  }
+  if (filmCounter) filmCounter.textContent = `${currentFilm + 1} / ${slides.length}`;
+}
+
+function playFilmSequence() {
+  clearInterval(filmTimer);
+  showFilmSlide(currentFilm + 1);
+  filmTimer = setInterval(() => showFilmSlide(currentFilm + 1), 4200);
+  unlockAchievement("memory-master");
+}
+
+function initBook() {
+  document.querySelectorAll(".book-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const id = tab.dataset.chapter;
+      document.querySelectorAll(".book-tab").forEach((item) => item.classList.remove("active"));
+      document.querySelectorAll(".book-page").forEach((page) => page.classList.remove("active"));
+      tab.classList.add("active");
+      document.querySelector(`[data-chapter-page="${id}"]`)?.classList.add("active");
+    });
+  });
+}
+
+function openInteractiveLetter() {
+  if (letterStarted || !letterType || !loveEnvelope) return;
+  letterStarted = true;
+  loveEnvelope.classList.add("love-envelope--open");
+  letterType.textContent = "";
+  let index = 0;
+  const timer = setInterval(() => {
+    letterType.textContent += letterText[index];
+    index += 1;
+    if (index >= letterText.length) {
+      clearInterval(timer);
+      letterFinal?.classList.remove("hidden");
+      burstHearts(44);
+    }
+  }, 28);
+}
+
+function initSectionPortals() {
+  document.querySelectorAll('.quick-nav a[href^="#"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      const target = document.querySelector(link.getAttribute("href"));
+      if (!target) return;
+      event.preventDefault();
+      showPortal(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+    });
+  });
 }
 
 function createGalaxy() {
@@ -600,17 +941,39 @@ nextMonth?.addEventListener("click", () => {
   calendarDate.setMonth(calendarDate.getMonth() + 1);
   renderCalendar();
 });
+prevYear?.addEventListener("click", () => {
+  calendarDate.setFullYear(calendarDate.getFullYear() - 1);
+  renderCalendar();
+});
+nextYear?.addEventListener("click", () => {
+  calendarDate.setFullYear(calendarDate.getFullYear() + 1);
+  renderCalendar();
+});
 backToPresent?.addEventListener("click", returnToPresent);
 botNext?.addEventListener("click", rotateBotPhrase);
 enableNotifications?.addEventListener("click", requestNotifications);
 shootArrow?.addEventListener("click", shootCupidArrow);
+planetMel?.addEventListener("click", openPlanetMel);
+playAudioMessage?.addEventListener("click", toggleAudioMessage);
+nicolasAudio?.addEventListener("ended", () => soundWaves?.classList.remove("sound-waves--active"));
+playFilm?.addEventListener("click", playFilmSequence);
+loveEnvelope?.addEventListener("click", openInteractiveLetter);
 document.querySelectorAll(".quiz-option[data-correct]").forEach((button) => button.addEventListener("click", answerQuiz));
 
 setInterval(updateRelationshipCounter, 1000);
+setInterval(updateRealClock, 1000);
 setInterval(rotateBotPhrase, 14000);
 updateRelationshipCounter();
+updateRealClock();
 renderCalendar();
 initGames();
+initConstellations();
+initSecrets();
+initVoiceMessages();
+initBook();
+initSectionPortals();
+hydrateAchievements();
+showFilmSlide(0);
 observeFinalMessage();
 createGalaxy();
 
