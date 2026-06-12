@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mary Marcelle - Nosso Universo</title>
+    <title>Universo Digital do Casal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -21,9 +21,9 @@
 
     <section class="intro" id="intro">
       <div class="intro__spark"></div>
-      <p class="intro__eyebrow">02 de junho</p>
-      <h1>Mary Marcelle</h1>
-      <p>Bem-vinda à nossa galáxia ✨</p>
+      <p class="intro__eyebrow">Universo Digital do Casal</p>
+      <h1>Nicolas ❤ Mel</h1>
+      <p>Bem-vindos à nossa galáxia viva ✨</p>
       <button class="enter-button" id="enterButton" type="button">
         <span>Entrar</span>
         <span aria-hidden="true">❤</span>
@@ -42,17 +42,13 @@
 
       <section class="hero section-panel">
         <div class="hero__content">
-          <p class="section-kicker">Universo da Mel</p>
-          <h2>Feliz aniversário, princesa</h2>
+          <p class="section-kicker">Galáxia viva</p>
+          <h2>Nosso universo continua crescendo</h2>
           <p>
-            Feliz aniversário, meu amor! Hoje é um dia especial porque celebra
-            a chegada da pessoa que tornou minha vida mais feliz, leve e cheia
-            de significado. Sou muito grato por ter você ao meu lado, por cada
-            sorriso, cada conversa, cada momento compartilhado. Que seu novo
-            ciclo venha cheio de alegria, saúde, conquistas e sonhos realizados.
-            Você merece tudo o que existe de mais bonito no mundo. Te amo e
-            espero continuar construindo muitas lembranças incríveis ao seu lado.
-            Parabéns, meu amor! ❤️
+            Este é o nosso espaço vivo: um lugar para guardar memórias, criar
+            novas histórias, voltar no tempo e acompanhar cada fase do nosso amor
+            com fotos, vídeos, diário, jogos, calendário e lembranças que seguem
+            brilhando como estrelas.
           </p>
         </div>
         <button class="orbit-card" id="melHeartButton" type="button" aria-label="Explodir coração da Mel">
@@ -215,33 +211,6 @@
         </div>
       </section>
 
-      <section class="quiz section-panel" id="quiz">
-        <p class="section-kicker">Quiz</p>
-        <h2>Nossa primeira viagem foi para:</h2>
-        <div class="quiz__buttons">
-          <button class="quiz-option" type="button" data-correct="false">Paris</button>
-          <button class="quiz-option" type="button" data-correct="true">Morro Branco</button>
-        </div>
-        <p class="quiz__answer" id="quizAnswer" aria-live="polite"></p>
-      </section>
-
-      <section class="cake section-panel" id="cake">
-        <p class="section-kicker">Parabéns</p>
-        <h2>Um bolo para a Mel</h2>
-        <div class="cake__scene" aria-label="Bolo animado com vela">
-          <div class="smoke smoke--one"></div>
-          <div class="smoke smoke--two"></div>
-          <div class="candle" id="candle">
-            <div class="flame" id="flame"></div>
-          </div>
-          <div class="cake__top"></div>
-          <div class="cake__middle"></div>
-          <div class="cake__bottom"></div>
-        </div>
-        <button class="wish-button" id="wishButton" type="button">Assoprar vela 🎂</button>
-        <p class="wish-message" id="wishMessage" aria-live="polite"></p>
-      </section>
-
       <section class="games section-panel" id="games">
         <p class="section-kicker">Jogos do Nosso Universo 🎮</p>
         <h2>Jogos do Nosso Universo 🎮</h2>
@@ -287,8 +256,8 @@
       </section>
 
       <section class="final-message section-panel" id="message">
-        <p class="section-kicker">Uma mensagem para você ✨</p>
-        <h2>Uma mensagem para você ✨</h2>
+        <p class="section-kicker">Carta do presente ✨</p>
+        <h2>Uma mensagem para nós ✨</h2>
         <p class="typewriter-message" id="typewriterMessage"></p>
         <p class="forever-message hidden" id="foreverMessage">Para sempre nós 🌌❤️</p>
       </section>
@@ -302,7 +271,8 @@
     <script>
       window.UNIVERSE_DATA = {
         photos: {{ photos|map(attribute='filename')|list|tojson }},
-        events: {{ events|map(attribute='event_date')|list|tojson }},
+        events: {{ calendar_dates|tojson }},
+        birthdayUrl: "{{ url_for('birthday_memory') }}",
       };
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>

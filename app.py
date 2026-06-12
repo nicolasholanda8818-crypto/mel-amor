@@ -11,7 +11,6 @@ from flask import (
     render_template,
     request,
     send_from_directory,
-    session,
     url_for,
 )
 from werkzeug.utils import secure_filename
@@ -32,7 +31,7 @@ UPLOAD_ROOT = Path(
         "/tmp/universo_uploads" if os.environ.get("VERCEL") else app.static_folder,
     )
 )
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mel2025")
+BIRTHDAY_DATE = "2026-06-02"
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
@@ -247,20 +246,24 @@ app.jinja_env.globals["asset_url"] = asset_url
 
 
 def require_admin():
-    return session.get("admin_authenticated") is True
+    return True
 
 
 @app.route("/")
 def index():
     photos = query_all("SELECT * FROM photos ORDER BY memory_date DESC, id DESC")
     videos = query_all("SELECT * FROM videos ORDER BY memory_date DESC, id DESC")
-    events = query_all("SELECT * FROM events ORDER BY event_date ASC, id ASC")
+    events = query_all("SELECT * FROM events WHERE event_date != ? ORDER BY event_date ASC, id ASC", (BIRTHDAY_DATE,))
+    calendar_dates = [row["event_date"] for row in query_all("SELECT event_date FROM events ORDER BY event_date ASC")]
+    if BIRTHDAY_DATE not in calendar_dates:
+        calendar_dates.append(BIRTHDAY_DATE)
     diary_entries = query_all("SELECT * FROM diary ORDER BY entry_date DESC, id DESC")
     return render_template(
         "index.html",
         photos=photos,
         videos=videos,
         events=events,
+        calendar_dates=calendar_dates,
         diary_entries=diary_entries,
         today=date.today().isoformat(),
     )
@@ -271,18 +274,15 @@ def uploaded_file(filename):
     return send_from_directory(UPLOAD_ROOT, filename)
 
 
+@app.route("/memorias/aniversario-mel")
+def birthday_memory():
+    photos = query_all("SELECT * FROM photos WHERE memory_date <= ? ORDER BY memory_date ASC, id ASC", (BIRTHDAY_DATE,))
+    videos = query_all("SELECT * FROM videos WHERE memory_date <= ? ORDER BY memory_date ASC, id ASC", (BIRTHDAY_DATE,))
+    return render_template("birthday.html", photos=photos, videos=videos)
+
+
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
-    if request.method == "POST" and request.form.get("action") == "login":
-        if request.form.get("password") == ADMIN_PASSWORD:
-            session["admin_authenticated"] = True
-            flash("Painel liberado.", "success")
-            return redirect(url_for("admin"))
-        flash("Senha incorreta.", "error")
-
-    if not require_admin():
-        return render_template("admin.html", authenticated=False)
-
     return render_template(
         "admin.html",
         authenticated=True,
@@ -292,12 +292,6 @@ def admin():
         diary_entries=query_all("SELECT * FROM diary ORDER BY id DESC"),
         today=date.today().isoformat(),
     )
-
-
-@app.route("/admin/logout", methods=["POST"])
-def admin_logout():
-    session.clear()
-    return redirect(url_for("admin"))
 
 
 @app.route("/admin/photo", methods=["POST"])

@@ -1,45 +1,54 @@
-# Universo vivo da Mel
+# Universo Digital do Casal
 
-O projeto agora tem uma base para crescer com o casal.
+O projeto agora possui duas experiências separadas.
 
-## O que foi adicionado
+## Experiência principal
 
-- SQLite para fotos, vídeos, eventos e diário.
-- Painel administrativo em `/admin`.
-- Upload de fotos e vídeos pelo painel.
-- Exclusão de fotos, vídeos, eventos e mensagens.
-- Diário do casal com autores `Nicolas` e `Mel`.
-- Respostas no diário.
-- Calendário inteligente.
-- Máquina do tempo por data.
-- Bot romântico animado.
-- Pedido de notificações do navegador.
-- Jogos do universo: quiz, caça ao coração, quebra-cabeça, memória e Cupido.
-- Galáxia 3D com estrelas, constelação e planetas.
-- Controle de música com tocar/pausar e volume.
+O site abre primeiro no Universo Digital do Casal. Esta é a versão atual, viva e em crescimento.
 
-## Senha do painel
+Ela mantém:
 
-Senha local padrão:
+- galáxia 3D;
+- música;
+- cronômetro do relacionamento;
+- galeria moderna;
+- vídeos separados das fotos;
+- calendário inteligente;
+- diário do casal;
+- bot romântico;
+- jogos;
+- coração interativo;
+- painel administrativo em `/admin`.
 
-```text
-mel2025
-```
+## Memória histórica
 
-Para produção, configure a variável:
+O aniversário da Mel foi preservado como um capítulo da linha do tempo.
+
+Ele fica em:
 
 ```text
-ADMIN_PASSWORD
+/memorias/aniversario-mel
 ```
 
-## Observação importante sobre Vercel
+No calendário, a data `02/06/2026` leva para essa memória histórica. Lá ficam o visual de aniversário, a mensagem, o bolo, o quiz, fotos, vídeos e o botão:
 
-A Vercel mantém o site online no mesmo link, mas não é ideal para uploads permanentes feitos pelo painel, porque arquivos enviados pelo servidor podem ser perdidos em ambiente serverless.
+```text
+✨ Voltar ao Presente
+```
 
-Para uploads realmente permanentes pelo painel, use uma destas opções:
+## Painel administrativo
 
-- Render com disco persistente.
-- Um banco/storage externo.
-- Atualizar fotos e vídeos pelo GitHub, como já foi feito até agora.
+O painel em `/admin` abre direto, sem pedir senha, para facilitar a atualização do site.
 
-O site continua funcionando na Vercel com as fotos e vídeos que estão no repositório.
+Por ele é possível adicionar:
+
+- fotos;
+- vídeos;
+- eventos do calendário;
+- mensagens no diário.
+
+## Observação sobre Vercel
+
+A Vercel mantém o site online no mesmo link. Quando uma mudança é enviada para o GitHub, a Vercel atualiza automaticamente o site.
+
+Para uploads permanentes, o caminho mais seguro continua sendo colocar fotos e vídeos no repositório e enviar para o GitHub, porque arquivos enviados pelo painel podem ser temporários no ambiente serverless da Vercel.

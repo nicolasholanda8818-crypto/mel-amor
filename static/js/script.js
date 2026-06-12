@@ -44,16 +44,13 @@ const cupidoMessage = document.querySelector("#cupidoMessage");
 
 const relationshipStart = new Date(2025, 10, 14, 0, 0, 0);
 const finalText =
-  "Mel ❤️\n" +
-  "Em um universo tão grande, cheio de estrelas e caminhos infinitos, a minha maior sorte foi encontrar você.\n" +
-  "Entre bilhões de pessoas, foi o seu sorriso que se tornou o meu lugar favorito.\n" +
-  "Foi com você que momentos simples ficaram especiais, risadas viraram memórias e dias comuns viraram histórias que quero guardar para sempre.\n" +
-  "Cada segundo ao seu lado se transformou em algo que eu nunca quero perder.\n" +
-  "Você é a minha princesa, minha melhor companhia, meu carinho, minha paz e uma das partes mais bonitas da minha vida.\n" +
-  "Quero continuar construindo lembranças, viagens, sonhos e momentos ao seu lado.\n" +
-  "Hoje é o seu aniversário, mas quem ganhou o maior presente fui eu: ter você na minha vida.\n" +
-  "Feliz aniversário, Mel.\n" +
-  "Eu te amo infinitamente ❤️✨";
+  "Nicolas e Mel ❤️\n" +
+  "Este universo nasceu para continuar crescendo com a gente.\n" +
+  "Cada foto, cada vídeo, cada mensagem e cada data guardada aqui vira uma estrela nova na nossa história.\n" +
+  "O passado fica protegido como memória, o presente fica vivo como carinho e o futuro fica aberto para tudo que ainda vamos construir.\n" +
+  "Que este cantinho seja nosso mapa de lembranças, viagens, risadas, sonhos e pequenos detalhes que só nós entendemos.\n" +
+  "Enquanto houver amor, sempre vai existir mais uma página para escrever.\n" +
+  "Nicolas e Mel para sempre ❤️✨";
 
 const botPhrases = [
   "Hoje é um ótimo dia para criar uma memória ❤",
@@ -227,12 +224,12 @@ function answerQuiz(event) {
   const isCorrect = option.dataset.correct === "true";
 
   if (isCorrect) {
-    quizAnswer.textContent = "💖 Acertou Mel!";
+    if (quizAnswer) quizAnswer.textContent = "💖 Acertou Mel!";
     burstHearts(42);
     return;
   }
 
-  quizAnswer.textContent = "Quase, princesa. A resposta é Morro Branco ❤";
+  if (quizAnswer) quizAnswer.textContent = "Quase, princesa. A resposta é Morro Branco ❤";
 }
 
 function blowCandle() {
@@ -324,6 +321,11 @@ function renderCalendar() {
 }
 
 function enterTimeMachine(dateKey) {
+  if (dateKey === "2026-06-02" && window.UNIVERSE_DATA?.birthdayUrl) {
+    window.location.href = window.UNIVERSE_DATA.birthdayUrl;
+    return;
+  }
+
   const photos = Array.from(document.querySelectorAll(".polaroid"));
   const videos = Array.from(document.querySelectorAll(".video-card"));
   const diary = Array.from(document.querySelectorAll(".diary-card"));
@@ -602,7 +604,7 @@ backToPresent?.addEventListener("click", returnToPresent);
 botNext?.addEventListener("click", rotateBotPhrase);
 enableNotifications?.addEventListener("click", requestNotifications);
 shootArrow?.addEventListener("click", shootCupidArrow);
-document.querySelectorAll(".quiz-option").forEach((button) => button.addEventListener("click", answerQuiz));
+document.querySelectorAll(".quiz-option[data-correct]").forEach((button) => button.addEventListener("click", answerQuiz));
 
 setInterval(updateRelationshipCounter, 1000);
 setInterval(rotateBotPhrase, 14000);
