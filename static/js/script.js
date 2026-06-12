@@ -24,6 +24,14 @@ const typewriterMessage = document.querySelector("#typewriterMessage");
 const foreverMessage = document.querySelector("#foreverMessage");
 const toggleMusic = document.querySelector("#toggleMusic");
 const volumeControl = document.querySelector("#volumeControl");
+const previousTrack = document.querySelector("#previousTrack");
+const nextTrack = document.querySelector("#nextTrack");
+const shuffleTrack = document.querySelector("#shuffleTrack");
+const favoriteTrack = document.querySelector("#favoriteTrack");
+const musicTitle = document.querySelector("#musicTitle");
+const themeSelector = document.querySelector("#themeSelector");
+const photoOfDayImage = document.querySelector("#photoOfDayImage");
+const photoOfDayCaption = document.querySelector("#photoOfDayCaption");
 const calendarTitle = document.querySelector("#calendarTitle");
 const calendarGrid = document.querySelector("#calendarGrid");
 const prevMonth = document.querySelector("#prevMonth");
@@ -34,39 +42,23 @@ const backToPresent = document.querySelector("#backToPresent");
 const timeMachine = document.querySelector("#timeMachine");
 const botPhrase = document.querySelector("#botPhrase");
 const botNext = document.querySelector("#botNext");
-const enableNotifications = document.querySelector("#enableNotifications");
 const coupleQuizScore = document.querySelector("#coupleQuizScore");
-const huntScore = document.querySelector("#huntScore");
-const heartHunt = document.querySelector("#heartHunt");
 const memoryBoard = document.querySelector("#memoryBoard");
 const shootArrow = document.querySelector("#shootArrow");
 const targetHeart = document.querySelector("#targetHeart");
 const arrowsLeft = document.querySelector("#arrowsLeft");
 const cupidoMessage = document.querySelector("#cupidoMessage");
-const planetMel = document.querySelector("#planetMel");
-const planetPanel = document.querySelector("#planetPanel");
-const playAudioMessage = document.querySelector("#playAudioMessage");
-const nicolasAudio = document.querySelector("#nicolasAudio");
-const soundWaves = document.querySelector("#soundWaves");
-const playFilm = document.querySelector("#playFilm");
-const filmCounter = document.querySelector("#filmCounter");
 const loveEnvelope = document.querySelector("#loveEnvelope");
+const letterTitle = document.querySelector("#letterTitle");
 const letterType = document.querySelector("#letterType");
 const letterFinal = document.querySelector("#letterFinal");
 const spacePortal = document.querySelector("#spacePortal");
-const giftPanel = document.querySelector("#giftPanel");
-const giftText = document.querySelector("#giftText");
 const currentDateLabel = document.querySelector("#currentDateLabel");
 const currentTimeLabel = document.querySelector("#currentTimeLabel");
 const dayNightLabel = document.querySelector("#dayNightLabel");
 const statsDays = document.querySelector("#statsDays");
 const statsHours = document.querySelector("#statsHours");
 const statsMinutes = document.querySelector("#statsMinutes");
-const specialDayPanel = document.querySelector("#specialDayPanel");
-const specialDayTitle = document.querySelector("#specialDayTitle");
-const specialDayMessage = document.querySelector("#specialDayMessage");
-const specialDayCake = document.querySelector("#specialDayCake");
-const specialDayLoveLetter = document.querySelector("#specialDayLoveLetter");
 
 const relationshipStart = new Date(2025, 10, 14, 0, 0, 0);
 const finalText =
@@ -78,26 +70,7 @@ const finalText =
   "Enquanto houver amor, sempre vai existir mais uma página para escrever.\n" +
   "Nicolas e Mel para sempre ❤️✨";
 
-const botPhrases = [
-  "Ei Mel, tem uma surpresa para você ❤️",
-  "Hoje é um ótimo dia para criar uma memória ❤",
-  "Não esqueçam de registrar um momento especial ✨",
-  "Mimi guardou uma frase bonita para vocês.",
-  "O universo fica mais bonito quando vocês estão juntos.",
-  "Uma foto de hoje pode virar uma saudade linda amanhã.",
-  "Cuidem do amor como quem cuida de uma estrela rara.",
-];
-
-const rosePhrases = [
-  "Você é meu lugar favorito ❤️",
-  "Seu sorriso deixa meu universo aceso.",
-  "Com você, todo caminho vira casa.",
-  "Meu carinho sempre encontra você.",
-];
-
-const letterText =
-  "Mel, se este envelope chegou até você, é porque existe uma parte do meu coração morando aqui. " +
-  "Eu amo cada detalhe nosso, cada risada, cada viagem, cada conversa e cada sonho que a gente ainda vai viver.";
+const botPhrases = buildRomanticPhrases();
 
 let currentPhoto = 0;
 let galleryTimer = null;
@@ -105,14 +78,64 @@ let typewriterStarted = false;
 let galaxyReady = false;
 let calendarDate = new Date();
 let coupleScore = 0;
-let huntFound = 0;
 let arrows = 3;
 let flippedCards = [];
 let matchedCards = 0;
-let currentFilm = 0;
-let filmTimer = null;
 let letterStarted = false;
-let activeSpecialDayKey = "";
+let currentTrack = 0;
+let recentPhraseIndexes = [];
+
+function buildRomanticPhrases() {
+  const starts = [
+    "Você é",
+    "Seu sorriso é",
+    "Nosso amor é",
+    "Cada memória nossa é",
+    "Mel, você é",
+    "A nossa história é",
+    "Com você, a vida fica",
+    "Quando penso em nós, tudo fica",
+    "Meu lugar favorito é",
+    "O universo fica mais bonito com",
+  ];
+  const middles = [
+    "meu lugar favorito",
+    "uma estrela acesa",
+    "uma paz que abraça",
+    "um carinho que ilumina",
+    "uma lembrança que brilha",
+    "uma constelação inteira",
+    "a parte mais bonita do meu dia",
+    "um sonho acordado",
+    "uma viagem que quero repetir",
+    "a melhor surpresa da vida",
+    "o detalhe que muda tudo",
+    "uma poesia acontecendo",
+  ];
+  const endings = [
+    "❤️",
+    "✨",
+    "🌌",
+    "para sempre.",
+    "todos os dias.",
+    "do jeitinho mais lindo.",
+    "no meu coração.",
+    "na nossa galáxia.",
+    "em cada segundo.",
+    "e eu amo viver isso com você.",
+  ];
+
+  const phrases = [];
+  starts.forEach((start) => {
+    middles.forEach((middle) => {
+      endings.forEach((ending) => {
+        phrases.push(`${start} ${middle} ${ending}`);
+      });
+    });
+  });
+
+  return phrases;
+}
 
 function startExperience() {
   intro.classList.add("intro--open");
@@ -130,10 +153,108 @@ function startExperience() {
 }
 
 function startMusic() {
+  if (!loveSong) return;
   loveSong.volume = Number(volumeControl?.value || 55) / 100;
-  loveSong.play().catch(() => {
-    console.log("A música precisa do arquivo static/music/musica.mp3 para tocar.");
+  loadTrack(currentTrack);
+  loveSong.play().then(() => updateMusicButton()).catch(() => {
+    console.log("Toque novamente para liberar a música no navegador.");
   });
+}
+
+function playlist() {
+  return window.UNIVERSE_DATA?.musicTracks || [];
+}
+
+function loadTrack(index, autoplay = false) {
+  const tracks = playlist();
+  if (!loveSong || !tracks.length) {
+    if (musicTitle) musicTitle.textContent = "Nenhuma música cadastrada";
+    return;
+  }
+
+  currentTrack = (index + tracks.length) % tracks.length;
+  const track = tracks[currentTrack];
+  const trackUrl = new URL(track.url, window.location.href).href;
+  if (loveSong.src !== trackUrl) {
+    loveSong.src = trackUrl;
+    loveSong.load();
+  }
+  if (musicTitle) musicTitle.textContent = track.title;
+  updateFavoriteButton();
+  if (autoplay) {
+    loveSong.play().then(() => updateMusicButton()).catch(() => showToast("Toque novamente para liberar a música."));
+  }
+}
+
+function updateMusicButton() {
+  if (!toggleMusic || !loveSong) return;
+  toggleMusic.textContent = loveSong.paused ? "Tocar" : "Pausar";
+}
+
+function toggleCurrentMusic() {
+  if (!loveSong) return;
+  if (loveSong.paused) {
+    startMusic();
+  } else {
+    loveSong.pause();
+    updateMusicButton();
+  }
+}
+
+function updateFavoriteButton() {
+  const tracks = playlist();
+  if (!favoriteTrack || !tracks.length) return;
+  favoriteTrack.textContent = tracks[currentTrack].favorite ? "♥" : "♡";
+  favoriteTrack.classList.toggle("is-favorite", Boolean(tracks[currentTrack].favorite));
+}
+
+function toggleFavoriteTrack() {
+  const tracks = playlist();
+  if (!tracks.length) return;
+  const track = tracks[currentTrack];
+  const previous = Boolean(track.favorite);
+  track.favorite = !previous;
+  updateFavoriteButton();
+
+  fetch("/favorite", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ kind: "music", item_id: String(track.id) }),
+  })
+    .then((response) => response.json())
+    .then((payload) => {
+      if (payload.ok) {
+        track.favorite = payload.favorite;
+        updateFavoriteButton();
+      }
+    })
+    .catch(() => {
+      track.favorite = previous;
+      updateFavoriteButton();
+      showToast("Não consegui salvar o favorito agora.");
+    });
+}
+
+function playNextTrack() {
+  loadTrack(currentTrack + 1, true);
+}
+
+function playPreviousTrack() {
+  loadTrack(currentTrack - 1, true);
+}
+
+function playRandomTrack() {
+  const tracks = playlist();
+  if (!tracks.length) return;
+  if (tracks.length === 1) {
+    loadTrack(0, true);
+    return;
+  }
+  let next = currentTrack;
+  while (next === currentTrack) {
+    next = Math.floor(Math.random() * tracks.length);
+  }
+  loadTrack(next, true);
 }
 
 function galleryItems() {
@@ -232,25 +353,6 @@ function showToast(message) {
   setTimeout(() => heartToast.classList.remove("heart-toast--show"), 3200);
 }
 
-function unlockAchievement(key) {
-  if (!key) return;
-  const unlocked = new Set(JSON.parse(localStorage.getItem("universeAchievements") || "[]"));
-  unlocked.add(key);
-  localStorage.setItem("universeAchievements", JSON.stringify([...unlocked]));
-  document.querySelectorAll(`[data-achievement="${key}"]`).forEach((card) => {
-    card.classList.add("unlocked");
-  });
-}
-
-function hydrateAchievements() {
-  const unlocked = new Set(JSON.parse(localStorage.getItem("universeAchievements") || "[]"));
-  document.querySelectorAll("[data-achievement]").forEach((card) => {
-    if (unlocked.has(card.dataset.achievement)) {
-      card.classList.add("unlocked");
-    }
-  });
-}
-
 function showPortal(callback) {
   if (!spacePortal) {
     callback();
@@ -259,65 +361,6 @@ function showPortal(callback) {
   spacePortal.classList.add("space-portal--show");
   setTimeout(callback, 360);
   setTimeout(() => spacePortal.classList.remove("space-portal--show"), 920);
-}
-
-function detectSpecialDay(now) {
-  const monthDay = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const todayKey = now.toISOString().slice(0, 10);
-  const registeredEvent = (window.UNIVERSE_DATA?.eventDetails || []).find((event) => event.event_date === todayKey);
-
-  if (monthDay === "06-02") {
-    return {
-      key: `birthday-${todayKey}`,
-      type: "birthday",
-      title: "Aniversário da Mel",
-      message: "Hoje o universo fica mais rosa, com bolo, confetes e carinho para a Mel.",
-    };
-  }
-
-  if (monthDay === "06-12") {
-    return {
-      key: `love-day-${todayKey}`,
-      type: "love_day",
-      title: "Dia dos Namorados",
-      message: "Hoje o universo acende corações extras e uma carta especial para Nicolas e Mel.",
-    };
-  }
-
-  if (registeredEvent) {
-    return {
-      key: `event-${registeredEvent.id}-${todayKey}`,
-      type: "event",
-      title: registeredEvent.title,
-      message: registeredEvent.description,
-    };
-  }
-
-  return null;
-}
-
-function applySpecialDay(specialDay) {
-  document.body.classList.remove("special-birthday", "special-love_day", "special-event");
-  if (!specialDay) {
-    specialDayPanel?.classList.add("hidden");
-    activeSpecialDayKey = "";
-    return;
-  }
-
-  specialDayPanel?.classList.remove("hidden");
-  document.body.classList.add(`special-${specialDay.type}`);
-  if (specialDayTitle) specialDayTitle.textContent = specialDay.title;
-  if (specialDayMessage) specialDayMessage.textContent = specialDay.message;
-  specialDayCake?.classList.toggle("hidden", specialDay.type !== "birthday");
-  specialDayLoveLetter?.classList.toggle("hidden", specialDay.type !== "love_day");
-
-  if (activeSpecialDayKey !== specialDay.key) {
-    activeSpecialDayKey = specialDay.key;
-    setTimeout(() => {
-      burstHearts(specialDay.type === "love_day" ? 70 : 48);
-      throwConfetti(specialDay.type === "birthday" ? 90 : 36);
-    }, 700);
-  }
 }
 
 function updateRealClock() {
@@ -345,7 +388,42 @@ function updateRealClock() {
 
   document.body.classList.toggle("day-mode", isDay);
   document.body.classList.toggle("night-mode", !isDay);
-  applySpecialDay(detectSpecialDay(now));
+}
+
+function applyTheme(theme) {
+  const allowed = ["galaxy", "garden", "dream"];
+  const nextTheme = allowed.includes(theme) ? theme : "galaxy";
+  document.body.classList.remove("theme-galaxy", "theme-garden", "theme-dream");
+  document.body.classList.add(`theme-${nextTheme}`);
+  if (themeSelector) themeSelector.value = nextTheme;
+  localStorage.setItem("universeTheme", nextTheme);
+}
+
+function initThemeSelector() {
+  const savedTheme = localStorage.getItem("universeTheme");
+  if (savedTheme) {
+    applyTheme(savedTheme);
+  }
+  themeSelector?.addEventListener("change", () => applyTheme(themeSelector.value));
+}
+
+function updatePhotoOfDay() {
+  if (!photoOfDayImage || !photoOfDayCaption) return;
+  const photos = Array.from(document.querySelectorAll(".polaroid"));
+  if (!photos.length) return;
+
+  const today = new Date();
+  const daySeed = Number(
+    `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`
+  );
+  const selected = photos[daySeed % photos.length];
+  const image = selected.querySelector("img");
+  const caption = selected.querySelector("figcaption");
+  if (!image) return;
+
+  photoOfDayImage.src = image.dataset.full || image.src;
+  photoOfDayImage.alt = image.alt || "Foto do dia";
+  photoOfDayCaption.textContent = caption?.textContent || "Uma memória linda do nosso universo.";
 }
 
 function explodeMelHeart() {
@@ -385,7 +463,6 @@ function explodeMelHeart() {
 
   burstHearts(100);
   setTimeout(() => melHeartButton.classList.remove("orbit-card--explode"), 1100);
-  unlockAchievement("memory-master");
 }
 
 function answerQuiz(event) {
@@ -499,9 +576,10 @@ function enterTimeMachine(dateKey) {
   const videos = Array.from(document.querySelectorAll(".video-card"));
   const diary = Array.from(document.querySelectorAll(".diary-card"));
   const events = Array.from(document.querySelectorAll(".timeline__item"));
+  const letters = Array.from(document.querySelectorAll(".saved-letter"));
 
-  const matches = [...photos, ...videos, ...diary, ...events].filter((item) => item.dataset.date === dateKey);
-  [...photos, ...videos, ...diary, ...events].forEach((item) => {
+  const matches = [...photos, ...videos, ...diary, ...events, ...letters].filter((item) => item.dataset.date === dateKey);
+  [...photos, ...videos, ...diary, ...events, ...letters].forEach((item) => {
     item.style.display = item.dataset.date === dateKey ? "" : "none";
   });
 
@@ -527,23 +605,16 @@ function returnToPresent() {
 
 function rotateBotPhrase() {
   if (!botPhrase) return;
-  const current = botPhrases.indexOf(botPhrase.textContent);
-  botPhrase.textContent = botPhrases[(current + 1 + botPhrases.length) % botPhrases.length];
-}
-
-function requestNotifications() {
-  if (!("Notification" in window)) {
-    botPhrase.textContent = "Seu navegador não permite notificações aqui, mas o carinho continua salvo ✨";
-    return;
+  if (!botPhrases.length) return;
+  let index = Math.floor(Math.random() * botPhrases.length);
+  let guard = 0;
+  while (recentPhraseIndexes.includes(index) && guard < 30) {
+    index = Math.floor(Math.random() * botPhrases.length);
+    guard += 1;
   }
-
-  Notification.requestPermission().then((permission) => {
-    if (permission === "granted") {
-      new Notification("Universo da Mel", {
-        body: "Não esqueçam de registrar um momento especial ✨",
-      });
-    }
-  });
+  recentPhraseIndexes.push(index);
+  recentPhraseIndexes = recentPhraseIndexes.slice(-32);
+  botPhrase.textContent = botPhrases[index];
 }
 
 function initGames() {
@@ -556,25 +627,6 @@ function initGames() {
       coupleQuizScore.textContent = `Pontuação: ${coupleScore}`;
     });
   });
-
-  if (heartHunt) {
-    for (let index = 0; index < 5; index += 1) {
-      const hiddenHeart = document.createElement("button");
-      hiddenHeart.type = "button";
-      hiddenHeart.className = "hidden-heart";
-      hiddenHeart.textContent = "❤";
-      hiddenHeart.style.left = `${8 + Math.random() * 82}%`;
-      hiddenHeart.style.top = `${42 + Math.random() * 45}%`;
-      hiddenHeart.addEventListener("click", () => {
-        if (hiddenHeart.classList.contains("found")) return;
-        hiddenHeart.classList.add("found");
-        huntFound += 1;
-        huntScore.textContent = `${huntFound} / 5`;
-        burstHearts(10);
-      });
-      heartHunt.appendChild(hiddenHeart);
-    }
-  }
 
   if (memoryBoard) {
     const symbols = ["❤", "🌌", "✨", "💖", "❤", "🌌", "✨", "💖"].sort(() => Math.random() - 0.5);
@@ -630,7 +682,6 @@ function shootCupidArrow() {
 
   if (arrows === 0) {
     cupidoMessage.textContent = "Desde o primeiro momento, meu coração escolheu você ❤ Nicolas e Mel para sempre ❤";
-    unlockAchievement("heart-guardian");
     for (let index = 0; index < 80; index += 1) {
       const rain = document.createElement("span");
       rain.className = "rain-heart couple-rain";
@@ -647,164 +698,72 @@ function shootCupidArrow() {
   setTimeout(() => targetHeart.classList.remove("target-hit"), 900);
 }
 
-function initConstellations() {
-  document.querySelectorAll(".constellation-card").forEach((button) => {
+function initConstellationChips() {
+  document.querySelectorAll(".constellation-chip").forEach((button) => {
     button.addEventListener("click", () => {
+      button.classList.add("constellation-chip--active");
       showToast("Em meio a bilhões de estrelas, encontrei você.");
-      button.classList.add("constellation-card--active");
-      burstHearts(24);
-      unlockAchievement("galaxy-explorer");
-      setTimeout(() => button.classList.remove("constellation-card--active"), 900);
+      burstHearts(18);
+      setTimeout(() => button.classList.remove("constellation-chip--active"), 900);
     });
   });
 }
 
-function openPlanetMel() {
-  if (!planetPanel || !planetMel) return;
-  planetPanel.classList.toggle("hidden");
-  planetMel.classList.add("planet-mel--active");
-  showToast("Habitado pela princesa mais linda do universo ❤️");
-  throwConfetti(28);
-  setTimeout(() => planetMel.classList.remove("planet-mel--active"), 1100);
-}
+function getLetterContent() {
+  const now = new Date();
+  const monthDay = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-function initSecrets() {
-  document.querySelectorAll(".rose-button").forEach((rose) => {
-    rose.addEventListener("click", () => {
-      showToast(rosePhrases[Math.floor(Math.random() * rosePhrases.length)]);
-      rose.classList.add("secret-found");
-      burstHearts(12);
-    });
-  });
-
-  document.querySelectorAll(".gift-button").forEach((gift) => {
-    gift.addEventListener("click", () => {
-      const message = gift.dataset.gift || "Uma lembrança linda apareceu.";
-      showToast(message);
-      if (giftPanel && giftText) {
-        giftText.textContent = message;
-        giftPanel.classList.remove("hidden");
-        giftPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-      gift.classList.add("secret-found");
-      throwConfetti(30);
-    });
-  });
-}
-
-function toggleAudioMessage() {
-  if (!nicolasAudio) return;
-  if (nicolasAudio.paused) {
-    nicolasAudio.play().then(() => {
-      soundWaves?.classList.add("sound-waves--active");
-      unlockAchievement("memory-master");
-    }).catch(() => showToast("Toque novamente para liberar o áudio."));
-  } else {
-    nicolasAudio.pause();
-    soundWaves?.classList.remove("sound-waves--active");
+  if (monthDay === "06-02") {
+    return {
+      title: "Feliz Aniversário Minha Princesa ❤️",
+      text:
+        "Feliz Aniversário Minha Princesa ❤️\n" +
+        "Hoje a carta guarda uma alegria especial: celebrar você, seu sorriso e a sorte enorme que é ter você na minha vida.\n" +
+        "Que seu novo ciclo seja lindo, leve, cheio de saúde, sonhos realizados e motivos para sorrir.\n" +
+        "Eu te amo infinitamente.",
+    };
   }
-}
 
-function formatDuration(seconds) {
-  if (!Number.isFinite(seconds)) return "0:00";
-  const minutes = Math.floor(seconds / 60);
-  const rest = Math.floor(seconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${rest}`;
-}
-
-function initVoiceMessages() {
-  document.querySelectorAll(".voice-audio").forEach((audio) => {
-    const card = audio.closest(".audio-player-card");
-    const durationLabel = card?.querySelector(".audio-duration");
-    audio.addEventListener("loadedmetadata", () => {
-      if (durationLabel) durationLabel.textContent = `Duração: ${formatDuration(audio.duration)}`;
-    });
-    audio.addEventListener("ended", () => {
-      card?.querySelector(".sound-waves")?.classList.remove("sound-waves--active");
-      card?.querySelector(".voice-play")?.classList.remove("is-playing");
-    });
-  });
-
-  document.querySelectorAll(".voice-play").forEach((button) => {
-    button.addEventListener("click", () => {
-      const audio = document.getElementById(button.dataset.audioTarget);
-      const card = button.closest(".audio-player-card");
-      if (!audio) return;
-
-      document.querySelectorAll(".voice-audio").forEach((item) => {
-        if (item !== audio) item.pause();
-      });
-      document.querySelectorAll(".sound-waves").forEach((waves) => waves.classList.remove("sound-waves--active"));
-      document.querySelectorAll(".voice-play").forEach((item) => item.classList.remove("is-playing"));
-
-      if (audio.paused) {
-        audio.play().then(() => {
-          card?.querySelector(".sound-waves")?.classList.add("sound-waves--active");
-          button.classList.add("is-playing");
-          unlockAchievement("memory-master");
-        }).catch(() => showToast("Toque novamente para liberar o áudio."));
-      } else {
-        audio.pause();
-        card?.querySelector(".sound-waves")?.classList.remove("sound-waves--active");
-        button.classList.remove("is-playing");
-      }
-    });
-  });
-}
-
-function showFilmSlide(index) {
-  const slides = Array.from(document.querySelectorAll(".film-slide"));
-  if (!slides.length) return;
-
-  slides.forEach((slide) => {
-    slide.classList.remove("active");
-    slide.querySelector("video")?.pause();
-  });
-  currentFilm = (index + slides.length) % slides.length;
-  const activeSlide = slides[currentFilm];
-  activeSlide.classList.add("active");
-  const video = activeSlide.querySelector("video");
-  if (video) {
-    video.currentTime = 0;
-    video.play().catch(() => {});
+  if (monthDay === "06-12") {
+    return {
+      title: "Feliz Dia dos Namorados ❤️",
+      text:
+        "Feliz Dia dos Namorados ❤️\n" +
+        "Em um universo tão grande, meu coração encontrou o seu e escolheu ficar.\n" +
+        "Obrigado por transformar dias comuns em lembranças bonitas e por ser meu carinho preferido.\n" +
+        "Quero continuar vivendo nossa história, uma estrela de cada vez.",
+    };
   }
-  if (filmCounter) filmCounter.textContent = `${currentFilm + 1} / ${slides.length}`;
-}
 
-function playFilmSequence() {
-  clearInterval(filmTimer);
-  showFilmSlide(currentFilm + 1);
-  filmTimer = setInterval(() => showFilmSlide(currentFilm + 1), 4200);
-  unlockAchievement("memory-master");
-}
-
-function initBook() {
-  document.querySelectorAll(".book-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      const id = tab.dataset.chapter;
-      document.querySelectorAll(".book-tab").forEach((item) => item.classList.remove("active"));
-      document.querySelectorAll(".book-page").forEach((page) => page.classList.remove("active"));
-      tab.classList.add("active");
-      document.querySelector(`[data-chapter-page="${id}"]`)?.classList.add("active");
-    });
-  });
+  return {
+    title: "Carta para a Mel ❤️",
+    text:
+      "Mel, se este envelope chegou até você, é porque existe uma parte do meu coração morando aqui.\n" +
+      "Eu amo cada detalhe nosso, cada risada, cada viagem, cada conversa e cada sonho que a gente ainda vai viver.\n" +
+      "Você é meu lugar favorito.",
+  };
 }
 
 function openInteractiveLetter() {
   if (letterStarted || !letterType || !loveEnvelope) return;
   letterStarted = true;
   loveEnvelope.classList.add("love-envelope--open");
+  document.body.classList.add("letter-reading");
   letterType.textContent = "";
+  if (letterFinal) letterFinal.classList.add("hidden");
+  const content = getLetterContent();
+  if (letterTitle) letterTitle.textContent = content.title;
   let index = 0;
   const timer = setInterval(() => {
-    letterType.textContent += letterText[index];
+    letterType.textContent += content.text[index];
     index += 1;
-    if (index >= letterText.length) {
+    if (index >= content.text.length) {
       clearInterval(timer);
       letterFinal?.classList.remove("hidden");
-      burstHearts(44);
+      loveEnvelope.classList.add("love-envelope--finished");
+      burstHearts(56);
     }
-  }, 28);
+  }, 30);
 }
 
 function initSectionPortals() {
@@ -926,10 +885,14 @@ nextPhoto?.addEventListener("click", () => {
   showPhoto(currentPhoto + 1);
   restartGallery();
 });
-toggleMusic?.addEventListener("click", () => {
-  if (loveSong.paused) startMusic();
-  else loveSong.pause();
-});
+toggleMusic?.addEventListener("click", toggleCurrentMusic);
+previousTrack?.addEventListener("click", playPreviousTrack);
+nextTrack?.addEventListener("click", playNextTrack);
+shuffleTrack?.addEventListener("click", playRandomTrack);
+favoriteTrack?.addEventListener("click", toggleFavoriteTrack);
+loveSong?.addEventListener("ended", playNextTrack);
+loveSong?.addEventListener("pause", updateMusicButton);
+loveSong?.addEventListener("play", updateMusicButton);
 volumeControl?.addEventListener("input", () => {
   loveSong.volume = Number(volumeControl.value) / 100;
 });
@@ -951,12 +914,7 @@ nextYear?.addEventListener("click", () => {
 });
 backToPresent?.addEventListener("click", returnToPresent);
 botNext?.addEventListener("click", rotateBotPhrase);
-enableNotifications?.addEventListener("click", requestNotifications);
 shootArrow?.addEventListener("click", shootCupidArrow);
-planetMel?.addEventListener("click", openPlanetMel);
-playAudioMessage?.addEventListener("click", toggleAudioMessage);
-nicolasAudio?.addEventListener("ended", () => soundWaves?.classList.remove("sound-waves--active"));
-playFilm?.addEventListener("click", playFilmSequence);
 loveEnvelope?.addEventListener("click", openInteractiveLetter);
 document.querySelectorAll(".quiz-option[data-correct]").forEach((button) => button.addEventListener("click", answerQuiz));
 
@@ -965,15 +923,13 @@ setInterval(updateRealClock, 1000);
 setInterval(rotateBotPhrase, 14000);
 updateRelationshipCounter();
 updateRealClock();
+loadTrack(0);
+initThemeSelector();
+updatePhotoOfDay();
 renderCalendar();
 initGames();
-initConstellations();
-initSecrets();
-initVoiceMessages();
-initBook();
+initConstellationChips();
 initSectionPortals();
-hydrateAchievements();
-showFilmSlide(0);
 observeFinalMessage();
 createGalaxy();
 

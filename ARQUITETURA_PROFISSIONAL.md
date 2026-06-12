@@ -1,45 +1,58 @@
-# Arquitetura Profissional - Universo Digital do Casal
+# Arquitetura Profissional - Universo Digital da Mel
 
 ## Objetivo
 
-Construir um universo digital vivo para Nicolas e Mel, com prioridade absoluta para celular. O site principal é o Universo Atual. O aniversário da Mel continua preservado como memória histórica separada, acessada pelo calendário em `02/06/2026`.
+Construir um universo digital vivo para Nicolas e Mel, com prioridade absoluta para celular. A experiência principal é simples de usar, organizada e leve. O site de aniversário da Mel continua preservado como memória histórica separada, acessada pelo calendário em `02/06/2026`.
 
-## Experiências
+O projeto também funciona como plataforma compartilhada: conteúdos cadastrados por Nicolas, Mel, Eduardo ou futuros usuários autorizados ficam disponíveis para todos.
+
+## Regra de experiências
 
 ### 1. Universo Digital do Casal
 
-Experiência principal, viva e atual. Ela contém galáxia, cronômetro em tempo real, diário, mural, áudio, filme, mapa, livro, cápsula do tempo, conquistas, bot Mimi, constelações, Planeta Mel, presentes, flores, jogos e painel administrativo.
+É a experiência atual e principal. Ela abre primeiro e concentra apenas as áreas realmente úteis:
+
+- `🌌 Início`
+- `📸 Galeria`
+- `🎥 Vídeos`
+- `📖 Diário`
+- `📅 Calendário`
+- `🎮 Jogos`
+- `💌 Cartas`
+- `⚙️ Painel`
+
+A funcionalidade de locais foi removida da interface, incluindo pins e geolocalização.
 
 ### 2. Memória Histórica do Aniversário
 
-Experiência congelada no tempo, separada em `/memorias/aniversario-mel`. Mantém bolo, quiz, mensagem, fotos e vídeos daquele capítulo, com botão para voltar ao presente.
+Fica separada em `/memorias/aniversario-mel`. Ela preserva bolo, mensagem, fotos, vídeos e visual daquele capítulo. O calendário funciona como máquina do tempo para acessar essa memória.
 
 ## Jornada emocional
 
-1. A Mel entra e vê uma galáxia viva com Nicolas e Mel.
-2. Ela toca em Entrar e o universo se abre com música e movimento.
-3. Ela percebe a data e hora reais, vendo que o site entende o dia atual.
-4. Ela encontra constelações com os nomes MEL, NICOLAS e um coração.
-5. Ela toca no Planeta Mel e recebe uma mensagem de princesa.
-6. Ela passa por fotos, mural, mapa, vídeos e filme do relacionamento.
-7. Ela joga, desbloqueia conquistas e encontra presentes escondidos.
-8. Ela lê o livro da história e cria cartas futuras na cápsula do tempo.
+1. A Mel entra e vê a galáxia viva com Nicolas e Mel.
+2. Ela toca em Entrar, a música começa e o universo abre.
+3. No Início, ela vê data, hora, cronômetro do relacionamento, frase romântica e foto do dia.
+4. Ela navega por uma galeria única com todas as fotos.
+5. Ela abre a biblioteca única de vídeos.
+6. Ela escreve ou lê mensagens no diário, identificadas por Nicolas ou Mel.
+7. Ela usa o calendário para voltar a datas especiais.
+8. Ela joga Quiz do Casal, Memória dos Momentos e Cupido do Universo.
 9. Ela abre a cartinha interativa e recebe a mensagem final.
-10. Datas especiais mudam o clima do universo sem misturar a página histórica.
+10. O painel permite atualizar tudo por botões, sem editar código.
 
 ## Mobile first
 
-O celular é a prioridade. As seções usam:
+O celular é a prioridade. As telas usam:
 
-- grids que viram uma coluna em telas pequenas;
+- navegação horizontal curta;
 - botões grandes;
-- navegação horizontal fixa;
 - cards com 8px de borda;
-- mídia com lazy loading;
-- listas paginadas ou limitadas;
-- renderização progressiva para evitar travamentos.
+- imagens em miniatura;
+- vídeos com `preload="metadata"`;
+- grids que viram uma coluna;
+- listas limitadas para manter desempenho.
 
-No desktop, os mesmos componentes ganham mais colunas, mais respiro e painéis lado a lado.
+No desktop, os mesmos componentes ganham mais colunas sem mudar o fluxo principal.
 
 ## Estrutura de pastas
 
@@ -68,75 +81,81 @@ love-project/
 
 ## Banco de dados
 
-SQLite local e `/tmp` na Vercel. Tabelas principais:
+SQLite local e `/tmp` na Vercel. Tabelas ativas:
 
-- `photos`: fotos da galeria.
-- `videos`: vídeos.
-- `events`: eventos do calendário.
+- `photos`: fotos da galeria única.
+- `videos`: vídeos da biblioteca única.
+- `music_tracks`: músicas da playlist.
+- `events`: datas do calendário.
 - `diary`: mensagens do diário.
-- `audio_messages`: mensagens de voz.
-- `memory_mural`: mural com foto, local, data e descrição.
-- `story_chapters`: capítulos do livro.
-- `time_capsules`: cartas futuras.
 - `profiles`: perfis Nicolas e Mel.
-- `site_settings`: personalização do site.
+- `favorites`: favoritos por usuário e tipo de conteúdo.
+- `site_settings`: cores, textos e tema.
+
+Tabelas antigas como `audio_messages`, `memory_mural` e `story_chapters` são mantidas para compatibilidade de backup. `time_capsules` é usada como cartas salvas.
+
+## Persistência permanente
+
+Localmente, o projeto usa SQLite e arquivos dentro de `static/`. Para produção permanente, o código aceita:
+
+- `DATABASE_URL` ou `POSTGRES_URL`: banco PostgreSQL real para conteúdos, mensagens, eventos, favoritos, perfis e configurações.
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: armazenamento persistente de fotos, vídeos e músicas.
+
+Sem essas variáveis, a Vercel usa armazenamento temporário para uploads. Com elas, não é necessário editar código nem republicar para adicionar conteúdo pelo painel.
 
 ## Rotas Flask
 
 - `GET /`: Universo Atual.
 - `GET /memorias/aniversario-mel`: memória histórica.
-- `GET /admin`: painel.
+- `GET /admin`: painel simples.
 - `POST /profile`: selecionar perfil.
 - `POST /diary`: criar mensagem no diário.
-- `POST /time-capsule`: criar carta futura.
+- `POST /admin/diary/<id>/edit`: editar mensagem do diário.
 - `POST /admin/photo`: adicionar foto.
 - `POST /admin/video`: adicionar vídeo.
-- `POST /admin/audio`: adicionar áudio.
-- `POST /admin/mural`: adicionar memória no mural.
-- `POST /admin/event`: adicionar evento.
-- `POST /admin/chapter`: adicionar capítulo.
-- `POST /admin/settings`: alterar personalização.
+- `POST /admin/music`: adicionar música.
+- `POST /admin/profile`: adicionar usuário autorizado.
+- `POST /favorite`: favoritar/desfavoritar conteúdo.
+- `POST /admin/event`: adicionar data no calendário.
+- `POST /admin/settings`: alterar tema, cores e textos.
 - `GET /admin/backup/export`: exportar backup JSON.
 - `POST /admin/backup/restore`: restaurar backup JSON.
 - `POST /admin/delete/<kind>/<id>`: excluir itens.
 
 ## Tempo real
 
-O navegador usa o relógio real do dispositivo da Mel:
+O navegador usa o relógio real do dispositivo:
 
 - data atual;
 - hora, minuto e segundo;
 - modo dia/noite;
 - cronômetro desde `14/11/2025`;
-- eventos automáticos do dia;
-- calendário abrindo no mês atual.
-
-O servidor envia eventos cadastrados; o cliente decide o que está acontecendo hoje.
+- eventos automáticos;
+- calendário abrindo no mês atual;
+- foto do dia escolhida automaticamente.
 
 ## Performance
 
 Para suportar 500 fotos, 100 vídeos e 1000 mensagens:
 
-- imagens usam `loading="lazy"`;
+- fotos usam miniaturas e `loading="lazy"`;
 - vídeos usam `preload="metadata"`;
-- listas principais mostram quantidades limitadas por vez;
-- botões carregam mais itens sem travar;
-- uploads geram miniaturas quando Pillow estiver disponível;
-- vídeos recebem preview com o próprio arquivo como metadata/poster quando não houver ferramenta externa.
+- o servidor limita a renderização principal a 500 fotos, 100 vídeos e 1000 mensagens;
+- uploads de imagem são otimizados com Pillow quando disponível;
+- o painel mantém ações simples e separadas.
 
 ## Personalização
 
-O painel permite alterar:
+O painel permite alterar sem código:
 
-- música principal;
-- cores;
-- textos de entrada;
+- tema entre Galáxia Romântica, Jardim do Amor e Noite dos Sonhos;
+- cores principais;
+- textos;
 - fotos;
 - vídeos;
-- áudios;
-- eventos;
-- capítulos;
-- cápsulas;
-- perfis.
-
-Tudo sem editar código.
+- músicas da playlist;
+- cartas;
+- mensagens;
+- datas do calendário;
+- perfis;
+- backup JSON.

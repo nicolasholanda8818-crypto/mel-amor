@@ -1,6 +1,8 @@
 import os
 import json
+import hashlib
 import sqlite3
+import time
 from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -23,16 +25,33 @@ try:
 except ImportError:
     Image = None
 
+try:
+    import requests
+except ImportError:
+    requests = None
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:
+    psycopg = None
+    dict_row = None
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "universo-da-mel-local")
 
 BASE_DIR = Path(__file__).resolve().parent
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+USE_POSTGRES = bool(DATABASE_URL and DATABASE_URL.startswith(("postgres://", "postgresql://")))
 DATABASE = Path(
     os.environ.get(
         "DATABASE_PATH",
         "/tmp/universo_mel.db" if os.environ.get("VERCEL") else BASE_DIR / "universo_mel.db",
     )
 )
+CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET")
 UPLOAD_ROOT = Path(
     os.environ.get(
         "UPLOAD_ROOT",
@@ -44,33 +63,62 @@ BIRTHDAY_DATE = "2026-06-02"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a"}
+THEMES = [
+    ("galaxy", "🌌 Galáxia Romântica"),
+    ("garden", "🌹 Jardim do Amor"),
+    ("dream", "🌙 Noite dos Sonhos"),
+]
 
 
 def get_db():
+    if USE_POSTGRES:
+        if psycopg is None:
+            raise RuntimeError("psycopg não está instalado para usar DATABASE_URL.")
+        return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+
     DATABASE.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DATABASE)
     connection.row_factory = sqlite3.Row
     return connection
 
 
+def normalize_query(query):
+    if USE_POSTGRES:
+        return query.replace("?", "%s")
+    return query
+
+
 def execute(query, params=()):
     with get_db() as connection:
-        connection.execute(query, params)
+        connection.execute(normalize_query(query), params)
         connection.commit()
 
 
 def query_all(query, params=()):
     with get_db() as connection:
-        return connection.execute(query, params).fetchall()
+        return connection.execute(normalize_query(query), params).fetchall()
 
 
 def query_one(query, params=()):
     with get_db() as connection:
-        return connection.execute(query, params).fetchone()
+        return connection.execute(normalize_query(query), params).fetchone()
 
 
 def ensure_column(table, column, definition):
-    columns = [row["name"] for row in query_all(f"PRAGMA table_info({table})")]
+    if USE_POSTGRES:
+        columns = [
+            row["column_name"]
+            for row in query_all(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = ?
+                """,
+                (table,),
+            )
+        ]
+    else:
+        columns = [row["name"] for row in query_all(f"PRAGMA table_info({table})")]
     if column not in columns:
         execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
@@ -94,18 +142,26 @@ def list_static_files(folder, extensions):
 
 
 def media_title(filename):
+    if filename.startswith(("http://", "https://")):
+        return Path(filename.split("?")[0]).stem.replace("-", " ").replace("_", " ").title() or "Memória"
     stem = Path(filename).stem.replace("-", " ").replace("_", " ").strip()
     return stem.title() if stem else "Memória"
 
 
+def is_external_asset(filename):
+    return bool(filename and filename.startswith(("http://", "https://")))
+
+
 def media_path(filename):
+    if is_external_asset(filename):
+        return Path("")
     if filename.startswith("uploaded/"):
         return (UPLOAD_ROOT / filename.replace("uploaded/", "", 1)).resolve()
     return (Path(app.static_folder) / filename).resolve()
 
 
 def optimize_image(filename):
-    if Image is None:
+    if Image is None or is_external_asset(filename):
         return
     path = media_path(filename)
     if not path.exists() or path.suffix.lower() not in IMAGE_EXTENSIONS:
@@ -122,6 +178,11 @@ def optimize_image(filename):
 
 
 def generate_thumbnail(filename):
+    if is_external_asset(filename):
+        if "res.cloudinary.com" in filename and "/upload/" in filename:
+            return filename.replace("/upload/", "/upload/c_fill,w_520,h_520,q_auto,f_auto/")
+        return filename
+
     if Image is None:
         return ""
 
@@ -154,40 +215,56 @@ def default_video_preview():
     return row["filename"] if row else ""
 
 
-def init_db():
+def run_schema(schema):
     with get_db() as connection:
-        connection.executescript(
-            """
+        if USE_POSTGRES:
+            for statement in schema.split(";"):
+                statement = statement.strip()
+                if statement:
+                    connection.execute(statement)
+            connection.commit()
+        else:
+            connection.executescript(schema)
+            connection.commit()
+
+
+def init_db():
+    id_type = "SERIAL PRIMARY KEY" if USE_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    run_schema(
+            f"""
             CREATE TABLE IF NOT EXISTS photos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 title TEXT NOT NULL,
                 caption TEXT NOT NULL,
                 filename TEXT NOT NULL UNIQUE,
                 thumb_filename TEXT NOT NULL DEFAULT '',
                 memory_date TEXT NOT NULL,
+                created_by TEXT NOT NULL DEFAULT 'Nicolas',
                 created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS videos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 title TEXT NOT NULL,
                 caption TEXT NOT NULL,
                 filename TEXT NOT NULL UNIQUE,
                 preview_filename TEXT NOT NULL DEFAULT '',
                 memory_date TEXT NOT NULL,
+                created_by TEXT NOT NULL DEFAULT 'Nicolas',
                 created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 title TEXT NOT NULL,
                 description TEXT NOT NULL,
                 event_date TEXT NOT NULL,
+                created_by TEXT NOT NULL DEFAULT 'Nicolas',
                 created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS diary (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 author TEXT NOT NULL,
                 message TEXT NOT NULL,
                 reply_to INTEGER,
@@ -197,42 +274,55 @@ def init_db():
             );
 
             CREATE TABLE IF NOT EXISTS audio_messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 title TEXT NOT NULL,
                 caption TEXT NOT NULL,
                 filename TEXT NOT NULL UNIQUE,
                 message_date TEXT NOT NULL,
+                created_by TEXT NOT NULL DEFAULT 'Nicolas',
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS music_tracks (
+                id {id_type},
+                title TEXT NOT NULL,
+                filename TEXT NOT NULL UNIQUE,
+                is_favorite INTEGER NOT NULL DEFAULT 0,
+                created_by TEXT NOT NULL DEFAULT 'Nicolas',
                 created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS memory_mural (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 title TEXT NOT NULL,
                 place TEXT NOT NULL,
                 description TEXT NOT NULL,
                 filename TEXT NOT NULL,
                 memory_date TEXT NOT NULL,
+                created_by TEXT NOT NULL DEFAULT 'Nicolas',
                 created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS story_chapters (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 title TEXT NOT NULL,
                 body TEXT NOT NULL,
                 chapter_order INTEGER NOT NULL,
+                created_by TEXT NOT NULL DEFAULT 'Nicolas',
                 created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS time_capsules (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 title TEXT NOT NULL,
                 message TEXT NOT NULL,
                 open_date TEXT NOT NULL,
+                created_by TEXT NOT NULL DEFAULT 'Nicolas',
                 created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 name TEXT NOT NULL UNIQUE,
                 color TEXT NOT NULL,
                 photo_filename TEXT NOT NULL DEFAULT '',
@@ -243,12 +333,28 @@ def init_db():
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS favorites (
+                id {id_type},
+                profile_name TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                item_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(profile_name, kind, item_id)
+            );
             """
         )
-        connection.commit()
 
     ensure_column("photos", "thumb_filename", "TEXT NOT NULL DEFAULT ''")
+    ensure_column("photos", "created_by", "TEXT NOT NULL DEFAULT 'Nicolas'")
     ensure_column("videos", "preview_filename", "TEXT NOT NULL DEFAULT ''")
+    ensure_column("videos", "created_by", "TEXT NOT NULL DEFAULT 'Nicolas'")
+    ensure_column("events", "created_by", "TEXT NOT NULL DEFAULT 'Nicolas'")
+    ensure_column("audio_messages", "created_by", "TEXT NOT NULL DEFAULT 'Nicolas'")
+    ensure_column("music_tracks", "created_by", "TEXT NOT NULL DEFAULT 'Nicolas'")
+    ensure_column("memory_mural", "created_by", "TEXT NOT NULL DEFAULT 'Nicolas'")
+    ensure_column("story_chapters", "created_by", "TEXT NOT NULL DEFAULT 'Nicolas'")
+    ensure_column("time_capsules", "created_by", "TEXT NOT NULL DEFAULT 'Nicolas'")
     seed_static_media()
     seed_default_events()
     seed_default_diary()
@@ -265,8 +371,8 @@ def seed_static_media():
             thumb_filename = generate_thumbnail(filename)
             execute(
                 """
-                INSERT INTO photos (title, caption, filename, thumb_filename, memory_date, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO photos (title, caption, filename, thumb_filename, memory_date, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     f"Memória {index}",
@@ -274,6 +380,7 @@ def seed_static_media():
                     filename,
                     thumb_filename,
                     "2025-11-14",
+                    "Nicolas",
                     now,
                 ),
             )
@@ -288,8 +395,8 @@ def seed_static_media():
             preview_filename = default_video_preview()
             execute(
                 """
-                INSERT INTO videos (title, caption, filename, preview_filename, memory_date, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO videos (title, caption, filename, preview_filename, memory_date, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     f"Vídeo {index}",
@@ -297,6 +404,7 @@ def seed_static_media():
                     filename,
                     preview_filename,
                     "2025-11-14",
+                    "Nicolas",
                     now,
                 ),
             )
@@ -310,14 +418,32 @@ def seed_static_media():
         if not exists:
             execute(
                 """
-                INSERT INTO audio_messages (title, caption, filename, message_date, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO audio_messages (title, caption, filename, message_date, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     f"Mensagem do Nicolas {index}",
                     "Uma mensagem em áudio guardada no nosso universo.",
                     filename,
                     date.today().isoformat(),
+                    "Nicolas",
+                    now,
+                ),
+            )
+
+    for index, filename in enumerate(list_static_files("music", AUDIO_EXTENSIONS), start=1):
+        exists = query_one("SELECT id FROM music_tracks WHERE filename = ?", (filename,))
+        if not exists:
+            execute(
+                """
+                INSERT INTO music_tracks (title, filename, is_favorite, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    media_title(filename),
+                    filename,
+                    1 if index == 1 else 0,
+                    "Nicolas",
                     now,
                 ),
             )
@@ -334,8 +460,8 @@ def seed_default_events():
         exists = query_one("SELECT id FROM events WHERE title = ? AND event_date = ?", (title, event_date))
         if not exists:
             execute(
-                "INSERT INTO events (title, description, event_date, created_at) VALUES (?, ?, ?, ?)",
-                (title, description, event_date, now),
+                "INSERT INTO events (title, description, event_date, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
+                (title, description, event_date, "Nicolas", now),
             )
 
 
@@ -386,10 +512,10 @@ def seed_default_universe_content():
         if not exists and filename:
             execute(
                 """
-                INSERT INTO memory_mural (title, place, description, filename, memory_date, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO memory_mural (title, place, description, filename, memory_date, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (title, place, description, filename, memory_date, now),
+                (title, place, description, filename, memory_date, "Nicolas", now),
             )
 
     chapter_defaults = [
@@ -403,23 +529,24 @@ def seed_default_universe_content():
         if not exists:
             execute(
                 """
-                INSERT INTO story_chapters (title, body, chapter_order, created_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO story_chapters (title, body, chapter_order, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (title, body, chapter_order, now),
+                (title, body, chapter_order, "Nicolas", now),
             )
 
     capsule_exists = query_one("SELECT id FROM time_capsules LIMIT 1")
     if not capsule_exists:
         execute(
             """
-            INSERT INTO time_capsules (title, message, open_date, created_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO time_capsules (title, message, open_date, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 "Carta para 02/06/2027",
                 "Quando este dia chegar, que a gente tenha ainda mais histórias bonitas para lembrar.",
                 "2027-06-02",
+                "Nicolas",
                 now,
             ),
         )
@@ -430,6 +557,7 @@ def seed_profiles():
     defaults = [
         ("Nicolas", "#5be7ff"),
         ("Mel", "#ff69b4"),
+        ("Eduardo", "#ffd36a"),
     ]
     for name, color in defaults:
         exists = query_one("SELECT id FROM profiles WHERE name = ?", (name,))
@@ -454,6 +582,7 @@ def seed_settings():
             "Este é o nosso espaço vivo: um lugar para guardar memórias, criar "
             "novas histórias, voltar no tempo e acompanhar cada fase do nosso amor."
         ),
+        "theme": "galaxy",
     }
     for key, value in defaults.items():
         exists = query_one("SELECT key FROM site_settings WHERE key = ?", (key,))
@@ -462,7 +591,10 @@ def seed_settings():
 
 
 def get_settings():
-    return {row["key"]: row["value"] for row in query_all("SELECT key, value FROM site_settings")}
+    settings = {row["key"]: row["value"] for row in query_all("SELECT key, value FROM site_settings")}
+    if settings.get("theme") not in {theme[0] for theme in THEMES}:
+        settings["theme"] = "galaxy"
+    return settings
 
 
 def set_setting(key, value):
@@ -476,6 +608,43 @@ def set_setting(key, value):
     )
 
 
+def cloudinary_enabled():
+    return bool(CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET and requests)
+
+
+def cloudinary_signature(params):
+    base = "&".join(f"{key}={params[key]}" for key in sorted(params))
+    return hashlib.sha1(f"{base}{CLOUDINARY_API_SECRET}".encode("utf-8")).hexdigest()
+
+
+def upload_to_cloudinary(file_storage, folder):
+    timestamp = int(time.time())
+    public_id = f"universo-mel/{folder}/{uuid4().hex}"
+    params = {
+        "public_id": public_id,
+        "timestamp": timestamp,
+    }
+    signature = cloudinary_signature(params)
+    endpoint = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/auto/upload"
+    file_storage.stream.seek(0)
+    try:
+        response = requests.post(
+            endpoint,
+            data={
+                "api_key": CLOUDINARY_API_KEY,
+                "timestamp": timestamp,
+                "public_id": public_id,
+                "signature": signature,
+            },
+            files={"file": (secure_filename(file_storage.filename), file_storage.stream, file_storage.mimetype)},
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()["secure_url"]
+    except Exception as error:
+        raise ValueError("Não foi possível enviar o arquivo para o armazenamento permanente.") from error
+
+
 def save_upload(file_storage, folder, allowed_extensions):
     if not file_storage or not file_storage.filename:
         return None
@@ -484,6 +653,9 @@ def save_upload(file_storage, folder, allowed_extensions):
     extension = Path(original).suffix.lower()
     if extension not in allowed_extensions:
         raise ValueError("Formato de arquivo não permitido.")
+
+    if cloudinary_enabled():
+        return upload_to_cloudinary(file_storage, folder)
 
     upload_folder = UPLOAD_ROOT / folder
     upload_folder.mkdir(parents=True, exist_ok=True)
@@ -497,6 +669,8 @@ def save_upload(file_storage, folder, allowed_extensions):
 def remove_static_file(filename):
     if not filename:
         return
+    if is_external_asset(filename):
+        return
     if filename.startswith("uploaded/"):
         path = (UPLOAD_ROOT / filename.replace("uploaded/", "", 1)).resolve()
         root = UPLOAD_ROOT.resolve()
@@ -508,6 +682,10 @@ def remove_static_file(filename):
 
 
 def asset_url(filename):
+    if not filename:
+        return ""
+    if is_external_asset(filename):
+        return filename
     if filename.startswith("uploaded/"):
         return url_for("uploaded_file", filename=filename.replace("uploaded/", "", 1))
     return url_for("static", filename=filename)
@@ -520,33 +698,47 @@ def require_admin():
     return True
 
 
+def active_profile_name():
+    return session.get("current_profile", "Nicolas")
+
+
 @app.route("/")
 def index():
     today = date.today()
-    photos = query_all("SELECT * FROM photos ORDER BY memory_date DESC, id DESC LIMIT 80")
-    videos = query_all("SELECT * FROM videos ORDER BY memory_date DESC, id DESC LIMIT 30")
+    photos = query_all("SELECT * FROM photos ORDER BY memory_date DESC, id DESC LIMIT 500")
+    videos = query_all("SELECT * FROM videos ORDER BY memory_date DESC, id DESC LIMIT 100")
     events = query_all("SELECT * FROM events WHERE event_date != ? ORDER BY event_date ASC, id ASC", (BIRTHDAY_DATE,))
     calendar_dates = [row["event_date"] for row in query_all("SELECT event_date FROM events ORDER BY event_date ASC")]
     if BIRTHDAY_DATE not in calendar_dates:
         calendar_dates.append(BIRTHDAY_DATE)
-    diary_entries = query_all("SELECT * FROM diary ORDER BY entry_date DESC, id DESC LIMIT 120")
+    diary_entries = query_all("SELECT * FROM diary ORDER BY entry_date DESC, id DESC LIMIT 1000")
     audio_messages = query_all("SELECT * FROM audio_messages ORDER BY message_date DESC, id DESC LIMIT 20")
+    music_tracks = query_all("SELECT * FROM music_tracks ORDER BY is_favorite DESC, id ASC LIMIT 120")
     mural_entries = query_all("SELECT * FROM memory_mural ORDER BY memory_date DESC, id DESC LIMIT 80")
     chapters = query_all("SELECT * FROM story_chapters ORDER BY chapter_order ASC, id ASC")
     capsules = query_all("SELECT * FROM time_capsules ORDER BY open_date ASC, id ASC")
     profiles = query_all("SELECT * FROM profiles ORDER BY name ASC")
-    current_profile_name = session.get("current_profile", "Nicolas")
+    current_profile_name = active_profile_name()
     current_profile = query_one("SELECT * FROM profiles WHERE name = ?", (current_profile_name,)) or profiles[0]
+    favorite_music_ids = {
+        row["item_id"]
+        for row in query_all(
+            "SELECT item_id FROM favorites WHERE profile_name = ? AND kind = ?",
+            (current_profile["name"], "music"),
+        )
+    }
     settings = get_settings()
     stats = {
         "photos": query_one("SELECT COUNT(*) AS total FROM photos")["total"],
         "videos": query_one("SELECT COUNT(*) AS total FROM videos")["total"],
         "audios": query_one("SELECT COUNT(*) AS total FROM audio_messages")["total"],
         "diary": query_one("SELECT COUNT(*) AS total FROM diary")["total"],
+        "music": query_one("SELECT COUNT(*) AS total FROM music_tracks")["total"],
         "mural": query_one("SELECT COUNT(*) AS total FROM memory_mural")["total"],
         "capsules": query_one("SELECT COUNT(*) AS total FROM time_capsules")["total"],
         "events": query_one("SELECT COUNT(*) AS total FROM events")["total"],
     }
+    stats["memories"] = stats["photos"] + stats["videos"] + stats["diary"] + stats["events"]
     return render_template(
         "index.html",
         photos=photos,
@@ -555,12 +747,15 @@ def index():
         calendar_dates=calendar_dates,
         diary_entries=diary_entries,
         audio_messages=audio_messages,
+        music_tracks=music_tracks,
         mural_entries=mural_entries,
         chapters=chapters,
         capsules=capsules,
         profiles=profiles,
         current_profile=current_profile,
+        favorite_music_ids=favorite_music_ids,
         settings=settings,
+        themes=THEMES,
         stats=stats,
         event_payloads=[dict(row) for row in events],
         today=today.isoformat(),
@@ -586,6 +781,7 @@ def admin():
         authenticated=True,
         photos=query_all("SELECT * FROM photos ORDER BY id DESC LIMIT 120"),
         videos=query_all("SELECT * FROM videos ORDER BY id DESC LIMIT 80"),
+        music_tracks=query_all("SELECT * FROM music_tracks ORDER BY is_favorite DESC, id DESC LIMIT 120"),
         events=query_all("SELECT * FROM events ORDER BY event_date DESC, id DESC LIMIT 120"),
         diary_entries=query_all("SELECT * FROM diary ORDER BY id DESC LIMIT 160"),
         audio_messages=query_all("SELECT * FROM audio_messages ORDER BY id DESC LIMIT 80"),
@@ -594,6 +790,11 @@ def admin():
         capsules=query_all("SELECT * FROM time_capsules ORDER BY open_date ASC, id ASC"),
         profiles=query_all("SELECT * FROM profiles ORDER BY name ASC"),
         settings=get_settings(),
+        themes=THEMES,
+        persistence={
+            "database": "PostgreSQL permanente" if USE_POSTGRES else "SQLite local",
+            "uploads": "Cloudinary permanente" if cloudinary_enabled() else "Arquivos locais",
+        },
         today=date.today().isoformat(),
     )
 
@@ -638,6 +839,41 @@ def update_profile(profile_id):
     return redirect(url_for("admin"))
 
 
+@app.route("/admin/profile", methods=["POST"])
+def add_profile():
+    if not require_admin():
+        return redirect(url_for("admin"))
+
+    name = (request.form.get("name") or "").strip()
+    if not name:
+        flash("Informe o nome do usuário.", "error")
+        return redirect(url_for("admin"))
+
+    try:
+        photo_filename = save_upload(request.files.get("photo"), "img", IMAGE_EXTENSIONS) or ""
+        if photo_filename:
+            optimize_image(photo_filename)
+            photo_filename = generate_thumbnail(photo_filename) or photo_filename
+        execute(
+            """
+            INSERT INTO profiles (name, color, photo_filename, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                name,
+                request.form.get("color") or "#ffd36a",
+                photo_filename,
+                datetime.now().isoformat(timespec="seconds"),
+            ),
+        )
+        flash("Usuário autorizado adicionado.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    except Exception:
+        flash("Já existe um usuário com esse nome.", "error")
+    return redirect(url_for("admin"))
+
+
 @app.route("/admin/settings", methods=["POST"])
 def update_settings():
     if not require_admin():
@@ -646,11 +882,27 @@ def update_settings():
     for key in ["primary_color", "accent_color", "gold_color", "intro_text", "hero_text"]:
         if key in request.form:
             set_setting(key, request.form.get(key) or "")
+    if request.form.get("theme") in {theme[0] for theme in THEMES}:
+        set_setting("theme", request.form.get("theme"))
 
     try:
         music_file = save_upload(request.files.get("music_file"), "music", AUDIO_EXTENSIONS)
         if music_file:
             set_setting("music_file", music_file)
+            execute(
+                """
+                INSERT INTO music_tracks (title, filename, is_favorite, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(filename) DO UPDATE SET title = excluded.title
+                """,
+                (
+                    request.form.get("music_title") or media_title(music_file),
+                    music_file,
+                    1,
+                    active_profile_name(),
+                    datetime.now().isoformat(timespec="seconds"),
+                ),
+            )
     except ValueError as error:
         flash(str(error), "error")
         return redirect(url_for("admin"))
@@ -666,11 +918,13 @@ def backup_tables():
         "events",
         "diary",
         "audio_messages",
+        "music_tracks",
         "memory_mural",
         "story_chapters",
         "time_capsules",
         "profiles",
         "site_settings",
+        "favorites",
     ]
 
 
@@ -719,7 +973,7 @@ def restore_backup():
                 placeholders = ", ".join("?" for _ in columns)
                 names = ", ".join(columns)
                 connection.execute(
-                    f"INSERT INTO {table} ({names}) VALUES ({placeholders})",
+                    normalize_query(f"INSERT INTO {table} ({names}) VALUES ({placeholders})"),
                     [row[column] for column in columns],
                 )
         connection.commit()
@@ -743,8 +997,8 @@ def add_photo():
 
         execute(
             """
-            INSERT INTO photos (title, caption, filename, thumb_filename, memory_date, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO photos (title, caption, filename, thumb_filename, memory_date, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request.form.get("title") or media_title(filename),
@@ -752,6 +1006,7 @@ def add_photo():
                 filename,
                 thumb_filename,
                 request.form.get("memory_date") or date.today().isoformat(),
+                active_profile_name(),
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
@@ -775,8 +1030,8 @@ def add_video():
 
         execute(
             """
-            INSERT INTO videos (title, caption, filename, preview_filename, memory_date, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO videos (title, caption, filename, preview_filename, memory_date, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request.form.get("title") or media_title(filename),
@@ -784,6 +1039,7 @@ def add_video():
                 filename,
                 preview_filename,
                 request.form.get("memory_date") or date.today().isoformat(),
+                active_profile_name(),
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
@@ -806,14 +1062,15 @@ def add_audio():
 
         execute(
             """
-            INSERT INTO audio_messages (title, caption, filename, message_date, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO audio_messages (title, caption, filename, message_date, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 request.form.get("title") or media_title(filename),
                 request.form.get("caption") or "Uma mensagem em áudio guardada com carinho.",
                 filename,
                 request.form.get("message_date") or date.today().isoformat(),
+                active_profile_name(),
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
@@ -821,6 +1078,65 @@ def add_audio():
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("admin"))
+
+
+@app.route("/admin/music", methods=["POST"])
+def add_music():
+    if not require_admin():
+        return redirect(url_for("admin"))
+
+    try:
+        filename = save_upload(request.files.get("file"), "music", AUDIO_EXTENSIONS)
+        if not filename:
+            flash("Escolha uma música.", "error")
+            return redirect(url_for("admin"))
+
+        execute(
+            """
+            INSERT INTO music_tracks (title, filename, is_favorite, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                request.form.get("title") or media_title(filename),
+                filename,
+                0,
+                active_profile_name(),
+                datetime.now().isoformat(timespec="seconds"),
+            ),
+        )
+        flash("Música adicionada à playlist.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin"))
+
+
+@app.route("/favorite", methods=["POST"])
+def toggle_favorite():
+    profile_name = active_profile_name()
+    kind = request.form.get("kind") or "music"
+    try:
+        item_id = int(request.form.get("item_id") or 0)
+    except ValueError:
+        item_id = 0
+    if not item_id:
+        return {"ok": False}, 400
+
+    existing = query_one(
+        "SELECT id FROM favorites WHERE profile_name = ? AND kind = ? AND item_id = ?",
+        (profile_name, kind, item_id),
+    )
+    if existing:
+        execute("DELETE FROM favorites WHERE id = ?", (existing["id"],))
+        return {"ok": True, "favorite": False}
+
+    execute(
+        """
+        INSERT INTO favorites (profile_name, kind, item_id, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (profile_name, kind, item_id, datetime.now().isoformat(timespec="seconds")),
+    )
+    return {"ok": True, "favorite": True}
 
 
 @app.route("/admin/mural", methods=["POST"])
@@ -841,8 +1157,8 @@ def add_mural_memory():
 
         execute(
             """
-            INSERT INTO memory_mural (title, place, description, filename, memory_date, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO memory_mural (title, place, description, filename, memory_date, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request.form.get("title") or "Nova memória",
@@ -850,6 +1166,7 @@ def add_mural_memory():
                 request.form.get("description") or "Uma lembrança linda do nosso universo.",
                 filename,
                 request.form.get("memory_date") or date.today().isoformat(),
+                active_profile_name(),
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
@@ -865,11 +1182,12 @@ def add_event():
         return redirect(url_for("admin"))
 
     execute(
-        "INSERT INTO events (title, description, event_date, created_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO events (title, description, event_date, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
         (
             request.form.get("title") or "Novo evento",
             request.form.get("description") or "Mais uma memória para guardar.",
             request.form.get("event_date") or date.today().isoformat(),
+            active_profile_name(),
             datetime.now().isoformat(timespec="seconds"),
         ),
     )
@@ -885,13 +1203,14 @@ def add_chapter():
     next_order = query_one("SELECT COALESCE(MAX(chapter_order), 0) + 1 AS next_order FROM story_chapters")
     execute(
         """
-        INSERT INTO story_chapters (title, body, chapter_order, created_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO story_chapters (title, body, chapter_order, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?)
         """,
         (
             request.form.get("title") or "Novo capítulo ❤️",
             request.form.get("body") or "Mais uma página da nossa história.",
             int(request.form.get("chapter_order") or next_order["next_order"]),
+            active_profile_name(),
             datetime.now().isoformat(timespec="seconds"),
         ),
     )
@@ -917,7 +1236,34 @@ def add_diary():
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
-    return redirect(url_for("index") + "#diary")
+    return redirect(request.form.get("next") or url_for("index") + "#diary")
+
+
+@app.route("/admin/diary/<int:entry_id>/edit", methods=["POST"])
+def edit_diary(entry_id):
+    if not require_admin():
+        return redirect(url_for("admin"))
+
+    message = (request.form.get("message") or "").strip()
+    if not message:
+        flash("A mensagem não pode ficar vazia.", "error")
+        return redirect(url_for("admin"))
+
+    execute(
+        """
+        UPDATE diary
+        SET author = ?, message = ?, entry_date = ?
+        WHERE id = ?
+        """,
+        (
+            request.form.get("author") or "Nicolas",
+            message,
+            request.form.get("entry_date") or date.today().isoformat(),
+            entry_id,
+        ),
+    )
+    flash("Mensagem atualizada.", "success")
+    return redirect(url_for("admin"))
 
 
 @app.route("/time-capsule", methods=["POST"])
@@ -928,13 +1274,13 @@ def add_time_capsule():
     if message:
         execute(
             """
-            INSERT INTO time_capsules (title, message, open_date, created_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO time_capsules (title, message, open_date, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (title, message, open_date, datetime.now().isoformat(timespec="seconds")),
+            (title, message, open_date, active_profile_name(), datetime.now().isoformat(timespec="seconds")),
         )
         flash("Cápsula do tempo criada.", "success")
-    return redirect(url_for("index") + "#time-capsule")
+    return redirect(request.form.get("next") or url_for("index") + "#letters")
 
 
 @app.route("/admin/delete/<kind>/<int:item_id>", methods=["POST"])
@@ -946,6 +1292,7 @@ def delete_item(kind, item_id):
         "photo": "photos",
         "video": "videos",
         "audio": "audio_messages",
+        "music": "music_tracks",
         "mural": "memory_mural",
         "event": "events",
         "diary": "diary",
@@ -957,7 +1304,7 @@ def delete_item(kind, item_id):
         return redirect(url_for("admin"))
 
     row = query_one(f"SELECT * FROM {table} WHERE id = ?", (item_id,))
-    if row and kind in {"photo", "video", "audio"} and "filename" in row.keys():
+    if row and kind in {"photo", "video", "audio", "music"} and "filename" in row.keys():
         remove_static_file(row["filename"])
     execute(f"DELETE FROM {table} WHERE id = ?", (item_id,))
     flash("Item excluído.", "success")

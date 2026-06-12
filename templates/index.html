@@ -12,17 +12,22 @@
     />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
   </head>
-  <body style="--pink: {{ settings.primary_color }}; --hot: {{ settings.primary_color }}; --violet: {{ settings.accent_color }}; --gold: {{ settings.gold_color }};">
+  <body class="theme-{{ settings.theme }}" style="--pink: {{ settings.primary_color }}; --hot: {{ settings.primary_color }}; --violet: {{ settings.accent_color }}; --gold: {{ settings.gold_color }};">
     <canvas id="galaxyCanvas" aria-hidden="true"></canvas>
 
-    <audio id="loveSong" loop preload="auto">
+    {% set first_music = music_tracks|first %}
+    <audio id="loveSong" preload="metadata">
+      {% if first_music %}
+      <source src="{{ asset_url(first_music.filename) }}" type="audio/mpeg" />
+      {% else %}
       <source src="{{ asset_url(settings.music_file) }}" type="audio/mpeg" />
+      {% endif %}
     </audio>
 
     <section class="intro" id="intro">
       <div class="intro__spark"></div>
       <p class="intro__eyebrow">Universo Digital do Casal</p>
-      <h1>Nicolas ❤ Mel</h1>
+      <h1>Mary Marcelle</h1>
       <p>{{ settings.intro_text }}</p>
       <button class="enter-button" id="enterButton" type="button">
         <span>Entrar</span>
@@ -32,28 +37,34 @@
 
     <main class="site-shell hidden" id="siteShell">
       <nav class="quick-nav" aria-label="Navegação do universo">
-        <a href="#gallery">Momentos</a>
-        <a href="#cosmic-playground">Céu Vivo</a>
-        <a href="#mural">Mural</a>
-        <a href="#audio-message">Áudio</a>
-        <a href="#video">Vídeos</a>
-        <a href="#calendar">Calendário</a>
-        <a href="#diary">Diário</a>
-        <a href="#love-map">Mapa</a>
-        <a href="#story-book">Livro</a>
-        <a href="#games">Jogos</a>
-        <a href="{{ url_for('admin') }}">Admin</a>
+        <a href="#inicio">🌌 Início</a>
+        <a href="#gallery">📸 Galeria</a>
+        <a href="#video">🎥 Vídeos</a>
+        <a href="#diary">📖 Diário</a>
+        <a href="#calendar">📅 Calendário</a>
+        <a href="#music">🎵 Playlist</a>
+        <a href="#games">🎮 Jogos</a>
+        <a href="#letters">💌 Cartas</a>
+        <a href="{{ url_for('admin') }}">⚙️ Painel</a>
       </nav>
 
-      <section class="hero section-panel">
+      <section class="hero section-panel" id="inicio">
         <div class="hero__content">
-          <p class="section-kicker">Galáxia viva</p>
-          <h2>Nosso universo continua crescendo</h2>
+          <p class="section-kicker">Galáxia Romântica</p>
+          <h2>Universo Atual da Mary Marcelle</h2>
           <p>
             Este é o nosso espaço vivo: um lugar para guardar memórias, criar
             novas histórias, voltar no tempo e acompanhar cada fase do nosso amor.
             {{ settings.hero_text }}
           </p>
+          <div class="hero-actions">
+            <a class="wish-button" href="{{ url_for('birthday_memory') }}">⏳ Abrir Memória Histórica</a>
+          </div>
+          <div class="constellation-strip" aria-label="Constelações do casal">
+            <button class="constellation-chip" type="button">MEL ❤</button>
+            <button class="constellation-chip" type="button">NICOLAS ❤</button>
+            <button class="constellation-chip constellation-chip--heart" type="button">❤</button>
+          </div>
         </div>
         <button class="orbit-card" id="melHeartButton" type="button" aria-label="Explodir coração da Mel">
           <div class="orbit-card__ring"></div>
@@ -103,81 +114,55 @@
           <article><span>Fotos</span><strong>{{ stats.photos }}</strong></article>
           <article><span>Vídeos</span><strong>{{ stats.videos }}</strong></article>
           <article><span>Cartas</span><strong>{{ stats.capsules }}</strong></article>
-          <article><span>Memórias</span><strong>{{ stats.mural }}</strong></article>
+          <article><span>Memórias</span><strong>{{ stats.memories }}</strong></article>
+        </div>
+        <div class="mimi-note">
+          <span aria-hidden="true">🌸</span>
+          <p id="botPhrase">Ei Mel, tem uma surpresa para você ❤️</p>
+          <button class="music-icon-button" id="botNext" type="button" aria-label="Nova frase romântica">↻</button>
         </div>
       </section>
 
-      <section class="special-day section-panel hidden" id="specialDayPanel">
-        <p class="section-kicker">Evento automático</p>
-        <h2 id="specialDayTitle">Data especial</h2>
-        <p id="specialDayMessage">O universo reconheceu uma data especial.</p>
-        <div class="cosmic-cake hidden" id="specialDayCake" aria-label="Bolo cósmico do aniversário">
-          <span></span>
-          <strong>Mel</strong>
-        </div>
-        <a class="wish-button special-day__link" href="{{ url_for('birthday_memory') }}">Abrir memória histórica</a>
-        <div class="love-letter-preview hidden" id="specialDayLoveLetter">
-          <strong>Carta especial</strong>
-          <p>Hoje é dia de lembrar que o nosso amor também é uma constelação inteira.</p>
-        </div>
-      </section>
-
-      <section class="music-control section-panel">
-        <p class="section-kicker">Trilha do universo</p>
-        <h2>Música</h2>
-        <div class="music-row">
-          <button class="wish-button" id="toggleMusic" type="button">Tocar / pausar</button>
-          <label>
-            Volume
-            <input id="volumeControl" type="range" min="0" max="100" value="55" />
+      <section class="music-player section-panel" id="music">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Trilha do universo</p>
+            <h2>Playlist do casal</h2>
+          </div>
+          <label class="theme-picker">
+            Tema
+            <select id="themeSelector" aria-label="Escolher tema do universo">
+              {% for value, label in themes %}
+              <option value="{{ value }}" {% if settings.theme == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
           </label>
-          <span>Loop ativado para a música de fundo.</span>
         </div>
-      </section>
-
-      <section class="cosmic-playground section-panel" id="cosmic-playground">
-        <p class="section-kicker">Céu interativo</p>
-        <h2>Constelações e segredos</h2>
-        <div class="cosmic-grid">
-          <button class="constellation-card" type="button" data-constellation="mel">
-            <span class="constellation-stars constellation-stars--mel"></span>
-            <strong>MEL ❤️</strong>
-          </button>
-          <button class="constellation-card" type="button" data-constellation="nicolas">
-            <span class="constellation-stars constellation-stars--nicolas"></span>
-            <strong>NICOLAS ❤️</strong>
-          </button>
-          <button class="constellation-card" type="button" data-constellation="heart">
-            <span class="constellation-stars constellation-stars--heart"></span>
-            <strong>Coração ❤️</strong>
-          </button>
-          <button class="planet-mel" id="planetMel" type="button">
-            <span class="planet-glow"></span>
-            <strong>Planeta Mel 👑</strong>
-          </button>
-        </div>
-        <div class="planet-panel hidden" id="planetPanel">
-          <strong>Planeta Mel 👑</strong>
-          <p>Habitado pela princesa mais linda do universo ❤️</p>
-        </div>
-        <div class="secret-field" aria-label="Rosas e presentes escondidos">
-          <button class="rose-button" type="button" style="--x: 12%; --y: 28%">🌹</button>
-          <button class="rose-button" type="button" style="--x: 72%; --y: 20%">🌹</button>
-          <button class="rose-button" type="button" style="--x: 42%; --y: 70%">🌹</button>
-          <button class="gift-button" type="button" data-gift="Uma lembrança: Morro Branco virou nossa estrela favorita." style="--x: 22%; --y: 66%">🎁</button>
-          <button class="gift-button" type="button" data-gift="Surpresa: cada foto aqui é uma prova de que nosso universo cresce." style="--x: 82%; --y: 62%">🎁</button>
-        </div>
-        <div class="gift-panel hidden" id="giftPanel">
-          <strong>Presente encontrado 🎁</strong>
-          <p id="giftText">Uma lembrança apareceu.</p>
-          {% if photos %}
-          <img src="{{ asset_url(photos[0].filename) }}" alt="Lembrança especial" />
-          {% endif %}
-          {% if videos %}
-          <video controls preload="metadata">
-            <source src="{{ asset_url(videos[0].filename) }}" type="video/mp4" />
-          </video>
-          {% endif %}
+        <div class="music-layout">
+          <article class="music-now">
+            <span>tocando agora</span>
+            <strong id="musicTitle">{% if first_music %}{{ first_music.title }}{% else %}Nenhuma música cadastrada{% endif %}</strong>
+            <div class="music-actions" aria-label="Controles da playlist">
+              <button class="gallery-button" id="previousTrack" type="button" aria-label="Música anterior">‹</button>
+              <button class="wish-button" id="toggleMusic" type="button">Tocar</button>
+              <button class="gallery-button" id="nextTrack" type="button" aria-label="Próxima música">›</button>
+              <button class="music-icon-button" id="shuffleTrack" type="button" aria-label="Música aleatória">⤨</button>
+              <button class="music-icon-button" id="favoriteTrack" type="button" aria-label="Favoritar música">♡</button>
+            </div>
+            <label>
+              Volume
+              <input id="volumeControl" type="range" min="0" max="100" value="55" />
+            </label>
+          </article>
+          <article class="photo-of-day" id="photoOfDay">
+            <span>Foto do dia</span>
+            {% if photos %}
+            <img id="photoOfDayImage" src="{{ asset_url(photos[0].thumb_filename or photos[0].filename) }}" alt="{{ photos[0].title }}" loading="lazy" />
+            <strong id="photoOfDayCaption">{{ photos[0].caption }}</strong>
+            {% else %}
+            <strong>Adicione fotos pelo painel.</strong>
+            {% endif %}
+          </article>
         </div>
       </section>
 
@@ -231,73 +216,6 @@
           <span id="galleryCounter">1 / {{ photos|length }}</span>
           <button class="gallery-button" id="nextPhoto" type="button" aria-label="Próxima foto">›</button>
         </div>
-      </section>
-
-      <section class="memory-mural section-panel" id="mural">
-        <p class="section-kicker">Mural de Memórias 📸</p>
-        <h2>Mural de Memórias</h2>
-        <div class="mural-grid">
-          {% for memory in mural_entries %}
-          <article class="mural-card" data-date="{{ memory.memory_date }}">
-            <img src="{{ asset_url(memory.filename) }}" alt="{{ memory.title }}" loading="lazy" />
-            <div>
-              <small>{{ memory.memory_date }}</small>
-              <strong>📍 {{ memory.place }}</strong>
-              <p>{{ memory.description }}</p>
-            </div>
-          </article>
-          {% endfor %}
-        </div>
-      </section>
-
-      <section class="audio-message section-panel" id="audio-message">
-        <p class="section-kicker">Ouça minha voz ❤️</p>
-        <h2>Mensagens de voz do Nicolas</h2>
-        {% if audio_messages %}
-        <div class="voice-grid">
-          {% for audio in audio_messages %}
-          <article class="audio-player-card">
-            <div class="voice-profile">
-              {% set nicolas = profiles|selectattr("name", "equalto", "Nicolas")|list|first %}
-              {% if nicolas and nicolas.photo_filename %}
-              <img src="{{ asset_url(nicolas.photo_filename) }}" alt="Nicolas" loading="lazy" />
-              {% else %}
-              <span>N</span>
-              {% endif %}
-              <div>
-                <strong>{{ audio.title }}</strong>
-                <small class="audio-duration">Duração: carregando...</small>
-              </div>
-            </div>
-            <button class="wish-button voice-play" type="button" data-audio-target="voiceAudio{{ audio.id }}">▶️ Ouvir Mensagem do Nicolas</button>
-            <audio id="voiceAudio{{ audio.id }}" class="voice-audio" preload="metadata">
-              <source src="{{ asset_url(audio.filename) }}" />
-            </audio>
-            <div class="sound-waves" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span>
-            </div>
-            <p>{{ audio.caption }}</p>
-          </article>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="voice-grid">
-        <div class="audio-player-card">
-          <div class="voice-profile">
-            <span>N</span>
-            <div>
-              <strong>Mensagem do Nicolas</strong>
-              <small>Duração: 0:00</small>
-            </div>
-          </div>
-          <button class="wish-button" type="button" disabled>▶️ Ouvir Mensagem do Nicolas</button>
-          <div class="sound-waves" aria-hidden="true">
-            <span></span><span></span><span></span><span></span><span></span>
-          </div>
-          <p>Adicione áudios pelo painel para ativar esta seção.</p>
-        </div>
-        </div>
-        {% endif %}
       </section>
 
       <section class="video-section section-panel" id="video">
@@ -368,115 +286,6 @@
         </div>
       </section>
 
-      <section class="bot-section section-panel">
-        <p class="section-kicker">Assistente do universo</p>
-        <h2>Mimi 🌸</h2>
-        <div class="romantic-bot">
-          <div class="bot-face" aria-hidden="true">
-            <span>🌸</span>
-          </div>
-          <p id="botPhrase">Ei Mel, tem uma surpresa para você ❤️</p>
-          <button class="wish-button" id="botNext" type="button">Nova frase</button>
-          <button class="wish-button" id="enableNotifications" type="button">Ativar lembretes</button>
-        </div>
-      </section>
-
-      <section class="love-map section-panel" id="love-map">
-        <p class="section-kicker">Mapa do Amor ❤️</p>
-        <h2>Mapa do Amor</h2>
-        <div class="map-board">
-          <article class="map-pin is-active">
-            <span>📍</span>
-            <strong>Morro Branco</strong>
-            <small>15/11/2025</small>
-            <p>Nossa primeira viagem juntos ❤️</p>
-            {% if photos %}
-            <img src="{{ asset_url(photos[0].thumb_filename or photos[0].filename) }}" alt="Morro Branco" loading="lazy" />
-            {% endif %}
-          </article>
-          <article class="map-pin">
-            <span>📍</span>
-            <strong>Nosso começo</strong>
-            <small>14/11/2025</small>
-            <p>O ponto onde o nosso universo começou.</p>
-            {% if photos|length > 1 %}
-            <img src="{{ asset_url(photos[1].thumb_filename or photos[1].filename) }}" alt="Nosso começo" loading="lazy" />
-            {% endif %}
-          </article>
-        </div>
-      </section>
-
-      <section class="relationship-film section-panel" id="relationship-film">
-        <p class="section-kicker">Nosso Filme ❤️</p>
-        <h2>Nosso Filme</h2>
-        <div class="film-screen" id="filmScreen">
-          {% for photo in photos[:5] %}
-          <figure class="film-slide {% if loop.first %}active{% endif %}" data-kind="photo">
-            <img src="{{ asset_url(photo.thumb_filename or photo.filename) }}" alt="{{ photo.title }}" loading="lazy" />
-            <figcaption>{{ photo.caption }}</figcaption>
-          </figure>
-          {% endfor %}
-          {% for video in videos[:2] %}
-          <figure class="film-slide" data-kind="video">
-            <video muted playsinline preload="metadata">
-              <source src="{{ asset_url(video.filename) }}" type="video/mp4" />
-            </video>
-            <figcaption>{{ video.caption }}</figcaption>
-          </figure>
-          {% endfor %}
-        </div>
-        <div class="film-controls">
-          <button class="wish-button" id="playFilm" type="button">Assistir sequência</button>
-          <span id="filmCounter">1</span>
-        </div>
-      </section>
-
-      <section class="story-book section-panel" id="story-book">
-        <p class="section-kicker">Livro da nossa história 📖</p>
-        <h2>Livro da Nossa História</h2>
-        <div class="book-layout">
-          <div class="book-tabs" role="tablist" aria-label="Capítulos">
-            {% for chapter in chapters %}
-            <button class="book-tab {% if loop.first %}active{% endif %}" type="button" data-chapter="{{ chapter.id }}">
-              {{ chapter.title }}
-            </button>
-            {% endfor %}
-          </div>
-          <div class="book-pages">
-            {% for chapter in chapters %}
-            <article class="book-page {% if loop.first %}active{% endif %}" data-chapter-page="{{ chapter.id }}">
-              <h3>{{ chapter.title }}</h3>
-              <p>{{ chapter.body }}</p>
-            </article>
-            {% endfor %}
-          </div>
-        </div>
-      </section>
-
-      <section class="time-capsule section-panel" id="time-capsule">
-        <p class="section-kicker">Cápsula do Tempo 📦</p>
-        <h2>Cartas futuras</h2>
-        <form class="capsule-form" action="{{ url_for('add_time_capsule') }}" method="post">
-          <label>Título <input name="title" placeholder="Carta para o futuro" /></label>
-          <label>Abrir em <input name="open_date" type="date" value="2027-06-02" /></label>
-          <label class="capsule-form__message">Mensagem <textarea name="message" required placeholder="Escreva uma carta para abrir no futuro."></textarea></label>
-          <button class="wish-button" type="submit">Guardar cápsula</button>
-        </form>
-        <div class="capsule-grid">
-          {% for capsule in capsules %}
-          <article class="capsule-card {% if capsule.open_date <= today %}is-open{% else %}is-locked{% endif %}" data-open-date="{{ capsule.open_date }}">
-            <strong>{{ capsule.title }}</strong>
-            <small>Abrir em {{ capsule.open_date }}</small>
-            {% if capsule.open_date <= today %}
-            <p>{{ capsule.message }}</p>
-            {% else %}
-            <p>Guardada no futuro. Ela abre quando a data chegar.</p>
-            {% endif %}
-          </article>
-          {% endfor %}
-        </div>
-      </section>
-
       <section class="games section-panel" id="games">
         <p class="section-kicker">Jogos do Nosso Universo 🎮</p>
         <h2>Jogos do Nosso Universo 🎮</h2>
@@ -487,21 +296,6 @@
             <button class="quiz-option couple-answer" data-answer="wrong" type="button">Paris</button>
             <button class="quiz-option couple-answer" data-answer="right" type="button">Morro Branco</button>
             <strong id="coupleQuizScore">Pontuação: 0</strong>
-          </article>
-          <article class="game-card heart-hunt" id="heartHunt">
-            <h3>Caça ao Coração ❤</h3>
-            <p>Encontre 5 corações escondidos.</p>
-            <strong id="huntScore">0 / 5</strong>
-          </article>
-          <article class="game-card puzzle-game">
-            <h3>Quebra-Cabeça 🧩</h3>
-            <div class="puzzle-board" id="puzzleBoard">
-              {% if photos %}
-              {% for number in range(1, 10) %}
-              <button style="background-image: url('{{ asset_url(photos[0].filename) }}')" data-piece="{{ number }}" type="button">{{ number }}</button>
-              {% endfor %}
-              {% endif %}
-            </div>
           </article>
           <article class="game-card memory-game">
             <h3>Memória dos Momentos 💖</h3>
@@ -521,38 +315,39 @@
         <p class="quiz__answer" id="cupidoMessage"></p>
       </section>
 
-      <section class="achievements section-panel" id="achievements">
-        <p class="section-kicker">Conquistas 🏆</p>
-        <h2>Conquistas do Universo</h2>
-        <div class="achievement-grid">
-          <article class="achievement-card" data-achievement="heart-guardian">
-            <span>🏹</span>
-            <strong>Guardiã do Meu Coração</strong>
-            <p>Desbloqueada ao acertar o alvo do Cupido.</p>
-          </article>
-          <article class="achievement-card" data-achievement="memory-master">
-            <span>❤️</span>
-            <strong>Mestre das Memórias</strong>
-            <p>Desbloqueada ao explorar o mural e a galeria.</p>
-          </article>
-          <article class="achievement-card" data-achievement="galaxy-explorer">
-            <span>🌌</span>
-            <strong>Exploradora da Galáxia</strong>
-            <p>Desbloqueada ao tocar uma constelação.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="interactive-letter section-panel" id="interactive-letter">
+      <section class="interactive-letter section-panel" id="letters">
         <p class="section-kicker">Cartinha interativa 💌</p>
         <h2>Envelope para a Mel</h2>
-        <button class="love-envelope" id="loveEnvelope" type="button" aria-label="Abrir cartinha">
+        <button class="love-envelope" id="loveEnvelope" type="button" aria-label="Abrir cartinha premium">
+          <span class="envelope-orbit envelope-orbit--one">❤</span>
+          <span class="envelope-orbit envelope-orbit--two">❤</span>
+          <span class="envelope-orbit envelope-orbit--three">✦</span>
+          <span class="envelope-glow"></span>
+          <span class="envelope-pocket"></span>
           <span class="envelope-flap"></span>
           <span class="envelope-seal">❤</span>
-          <span class="envelope-letter" id="envelopeLetter"></span>
+          <span class="envelope-letter" id="envelopeLetter">
+            <span class="letter-paper-title" id="letterTitle">Carta para a Mel</span>
+            <span class="letter-paper-text" id="letterType"></span>
+            <strong class="letter-final hidden" id="letterFinal">❤️ Nicolas e Mel Para Sempre ❤️</strong>
+          </span>
+          <span class="envelope-sparkles" aria-hidden="true"></span>
         </button>
-        <p class="letter-type" id="letterType"></p>
-        <strong class="letter-final hidden" id="letterFinal">❤️ Nicolas e Mel para Sempre ❤️</strong>
+        {% if capsules %}
+        <div class="letters-library" aria-label="Cartas salvas">
+          {% for capsule in capsules %}
+          <article class="saved-letter {% if capsule.open_date <= today %}is-open{% else %}is-locked{% endif %}" data-date="{{ capsule.open_date }}">
+            <strong>{{ capsule.title }}</strong>
+            <small>Abrir em {{ capsule.open_date }}</small>
+            {% if capsule.open_date <= today %}
+            <p>{{ capsule.message }}</p>
+            {% else %}
+            <p>Esta carta está guardada para o futuro.</p>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        {% endif %}
       </section>
 
       <section class="final-message section-panel" id="message">
@@ -575,6 +370,16 @@
     <script>
       window.UNIVERSE_DATA = {
         photos: {{ photos|map(attribute='filename')|list|tojson }},
+        musicTracks: [
+          {% for track in music_tracks %}
+          {
+            id: {{ track.id }},
+            title: {{ track.title|tojson }},
+            url: {{ asset_url(track.filename)|tojson }},
+            favorite: {{ "true" if track.is_favorite or track.id in favorite_music_ids else "false" }}
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ],
         events: {{ calendar_dates|tojson }},
         eventDetails: {{ event_payloads|tojson }},
         birthdayUrl: "{{ url_for('birthday_memory') }}",
