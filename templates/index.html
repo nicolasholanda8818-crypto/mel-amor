@@ -23,7 +23,7 @@
       <div class="intro__spark"></div>
       <p class="intro__eyebrow">02 de junho</p>
       <h1>Mary Marcelle</h1>
-      <p>Bem-vinda ao nosso universo ✨</p>
+      <p>Bem-vinda à nossa galáxia ✨</p>
       <button class="enter-button" id="enterButton" type="button">
         <span>Entrar</span>
         <span aria-hidden="true">❤</span>
@@ -31,6 +31,15 @@
     </section>
 
     <main class="site-shell hidden" id="siteShell">
+      <nav class="quick-nav" aria-label="Navegação do universo">
+        <a href="#gallery">Momentos</a>
+        <a href="#video">Vídeos</a>
+        <a href="#calendar">Calendário</a>
+        <a href="#diary">Diário</a>
+        <a href="#games">Jogos</a>
+        <a href="{{ url_for('admin') }}">Admin</a>
+      </nav>
+
       <section class="hero section-panel">
         <div class="hero__content">
           <p class="section-kicker">Universo da Mel</p>
@@ -52,6 +61,19 @@
           <div class="orbit-card__name">Mel ❤</div>
           <div class="orbit-card__hint">Clique no coração</div>
         </button>
+      </section>
+
+      <section class="music-control section-panel">
+        <p class="section-kicker">Trilha do universo</p>
+        <h2>Música</h2>
+        <div class="music-row">
+          <button class="wish-button" id="toggleMusic" type="button">Tocar / pausar</button>
+          <label>
+            Volume
+            <input id="volumeControl" type="range" min="0" max="100" value="55" />
+          </label>
+          <span>Loop ativado para a música de fundo.</span>
+        </div>
       </section>
 
       <section class="timeline section-panel" id="timeline">
@@ -77,32 +99,25 @@
         </div>
         <p class="counter-summary" id="relationshipCounter">calculando...</p>
         <div class="timeline__items">
-          <article class="timeline__item">
+          {% for event in events %}
+          <article class="timeline__item" data-date="{{ event.event_date }}">
             <span class="floating-heart">❤</span>
-            <strong>Início do namoro</strong>
-            <p>14/11/2025</p>
+            <strong>{{ event.title }}</strong>
+            <p>{{ event.description }}</p>
+            <small>{{ event.event_date }}</small>
           </article>
-          <article class="timeline__item">
-            <span class="floating-heart">❤</span>
-            <strong>Primeira viagem</strong>
-            <p>Morro Branco</p>
-          </article>
-          <article class="timeline__item">
-            <span class="floating-heart">❤</span>
-            <strong>Aniversário da Mel</strong>
-            <p>02 de junho, o dia da minha princesa.</p>
-          </article>
+          {% endfor %}
         </div>
       </section>
 
       <section class="gallery section-panel" id="gallery">
-        <p class="section-kicker">Memórias reais</p>
-        <h2>Galeria do nosso amor</h2>
+        <p class="section-kicker">Nossos Momentos 📸</p>
+        <h2>Nossos Momentos 📸</h2>
         <div class="gallery__stage" id="galleryStage">
           {% for photo in photos %}
-          <figure class="polaroid {% if loop.first %}active{% endif %}">
-            <img src="{{ url_for('static', filename=photo) }}" alt="Memória especial {{ loop.index }} da Mel" />
-            <figcaption>Memória {{ loop.index }} do nosso universo.</figcaption>
+          <figure class="polaroid {% if loop.first %}active{% endif %}" data-date="{{ photo.memory_date }}">
+            <img src="{{ asset_url(photo.filename) }}" alt="{{ photo.title }}" />
+            <figcaption>{{ photo.caption }}</figcaption>
           </figure>
           {% endfor %}
         </div>
@@ -118,14 +133,85 @@
         <h2>Nossos Vídeos 🎥</h2>
         <div class="video-grid">
           {% for video in videos %}
-          <article class="video-card">
-            <video class="love-video" controls preload="metadata" {% if photos %}poster="{{ url_for('static', filename=photos[0]) }}"{% endif %}>
-              <source src="{{ url_for('static', filename=video) }}" type="video/mp4" />
+          <article class="video-card" data-date="{{ video.memory_date }}">
+            <video class="love-video" controls preload="metadata" {% if photos %}poster="{{ asset_url(photos[0].filename) }}"{% endif %}>
+              <source src="{{ asset_url(video.filename) }}" type="video/mp4" />
               Seu navegador não conseguiu abrir o vídeo.
             </video>
-            <p>Vídeo {{ loop.index }} do nosso amor.</p>
+            <p>{{ video.caption }}</p>
           </article>
           {% endfor %}
+        </div>
+      </section>
+
+      <section class="calendar-section section-panel" id="calendar">
+        <p class="section-kicker">Máquina do tempo</p>
+        <h2>Calendário inteligente</h2>
+        <div class="calendar-toolbar">
+          <button class="gallery-button" id="prevMonth" type="button" aria-label="Mês anterior">‹</button>
+          <strong id="calendarTitle">Calendário</strong>
+          <button class="gallery-button" id="nextMonth" type="button" aria-label="Próximo mês">›</button>
+          <button class="wish-button" id="backToPresent" type="button">Voltar ao Presente ✨</button>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="time-machine" id="timeMachine">
+          <strong>Hoje no nosso universo</strong>
+          <p>Escolha uma data para ver memórias, vídeos, mensagens e eventos daquele dia.</p>
+        </div>
+      </section>
+
+      <section class="diary section-panel" id="diary">
+        <p class="section-kicker">Nosso Diário ❤</p>
+        <h2>Nosso Diário ❤</h2>
+        <form class="diary-form" action="{{ url_for('add_diary') }}" method="post">
+          <label>
+            Quem está escrevendo?
+            <select name="author">
+              <option>Nicolas</option>
+              <option>Mel</option>
+            </select>
+          </label>
+          <label>
+            Data
+            <input type="date" name="entry_date" value="{{ today }}" />
+          </label>
+          <label class="diary-form__message">
+            Mensagem
+            <textarea name="message" required placeholder="Escreva uma memória, um carinho ou uma resposta."></textarea>
+          </label>
+          <button class="wish-button" type="submit">Guardar no diário</button>
+        </form>
+        <div class="diary-list">
+          {% for entry in diary_entries %}
+          <article class="diary-card" data-date="{{ entry.entry_date }}">
+            <strong>{{ entry.author }}</strong>
+            <small>{{ entry.entry_date }}</small>
+            <p>{{ entry.message }}</p>
+            <form action="{{ url_for('add_diary') }}" method="post">
+              <input type="hidden" name="reply_to" value="{{ entry.id }}" />
+              <input type="hidden" name="entry_date" value="{{ today }}" />
+              <select name="author">
+                <option>Nicolas</option>
+                <option>Mel</option>
+              </select>
+              <input name="message" required placeholder="Responder esta mensagem" />
+              <button type="submit">Responder</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="bot-section section-panel">
+        <p class="section-kicker">Assistente do amor</p>
+        <h2>Melody, a guardiã das memórias</h2>
+        <div class="romantic-bot">
+          <div class="bot-face" aria-hidden="true">
+            <span>♡</span>
+          </div>
+          <p id="botPhrase">Hoje é um ótimo dia para criar uma memória ❤</p>
+          <button class="wish-button" id="botNext" type="button">Nova frase</button>
+          <button class="wish-button" id="enableNotifications" type="button">Ativar lembretes</button>
         </div>
       </section>
 
@@ -156,9 +242,53 @@
         <p class="wish-message" id="wishMessage" aria-live="polite"></p>
       </section>
 
+      <section class="games section-panel" id="games">
+        <p class="section-kicker">Jogos do Nosso Universo 🎮</p>
+        <h2>Jogos do Nosso Universo 🎮</h2>
+        <div class="games-grid">
+          <article class="game-card">
+            <h3>Quiz do Casal ❤</h3>
+            <p id="coupleQuizQuestion">Qual foi nossa primeira viagem?</p>
+            <button class="quiz-option couple-answer" data-answer="wrong" type="button">Paris</button>
+            <button class="quiz-option couple-answer" data-answer="right" type="button">Morro Branco</button>
+            <strong id="coupleQuizScore">Pontuação: 0</strong>
+          </article>
+          <article class="game-card heart-hunt" id="heartHunt">
+            <h3>Caça ao Coração ❤</h3>
+            <p>Encontre 5 corações escondidos.</p>
+            <strong id="huntScore">0 / 5</strong>
+          </article>
+          <article class="game-card puzzle-game">
+            <h3>Quebra-Cabeça 🧩</h3>
+            <div class="puzzle-board" id="puzzleBoard">
+              {% if photos %}
+              {% for number in range(1, 10) %}
+              <button style="background-image: url('{{ asset_url(photos[0].filename) }}')" data-piece="{{ number }}" type="button">{{ number }}</button>
+              {% endfor %}
+              {% endif %}
+            </div>
+          </article>
+          <article class="game-card memory-game">
+            <h3>Memória dos Momentos 💖</h3>
+            <div class="memory-board" id="memoryBoard"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="cupido section-panel" id="cupido">
+        <p class="section-kicker">Cupido do Universo ❤🏹</p>
+        <h2>Cupido do Universo ❤🏹</h2>
+        <p class="arrows" id="arrowsLeft">🏹🏹🏹</p>
+        <div class="cupido-field" id="cupidoField">
+          <button class="target-heart" id="targetHeart" type="button">Nicolas ❤ Mel</button>
+        </div>
+        <button class="wish-button" id="shootArrow" type="button">Atirar flecha</button>
+        <p class="quiz__answer" id="cupidoMessage"></p>
+      </section>
+
       <section class="final-message section-panel" id="message">
-        <p class="section-kicker">Mensagem final</p>
-        <h2>Para você, Mel</h2>
+        <p class="section-kicker">Uma mensagem para você ✨</p>
+        <h2>Uma mensagem para você ✨</h2>
         <p class="typewriter-message" id="typewriterMessage"></p>
         <p class="forever-message hidden" id="foreverMessage">Para sempre nós 🌌❤️</p>
       </section>
@@ -169,6 +299,12 @@
     <div class="heart-fragments" id="heartFragments" aria-hidden="true"></div>
     <div class="heart-toast" id="heartToast" aria-live="polite"></div>
 
+    <script>
+      window.UNIVERSE_DATA = {
+        photos: {{ photos|map(attribute='filename')|list|tojson }},
+        events: {{ events|map(attribute='event_date')|list|tojson }},
+      };
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
   </body>

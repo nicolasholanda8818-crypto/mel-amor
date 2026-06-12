@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel do Universo da Mel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body class="admin-body">
+    <main class="admin-shell">
+      <header class="admin-header">
+        <div>
+          <p class="section-kicker">Painel protegido</p>
+          <h1>Universo da Mel</h1>
+        </div>
+        <a class="admin-link" href="{{ url_for('index') }}">Voltar ao site</a>
+      </header>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flash-list">
+        {% for category, message in messages %}
+        <p class="flash flash--{{ category }}">{{ message }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      {% if not authenticated %}
+      <section class="admin-card">
+        <h2>Entrar no painel</h2>
+        <p>Digite a senha para cuidar das fotos, vídeos, eventos e diário.</p>
+        <form method="post">
+          <input type="hidden" name="action" value="login" />
+          <label>
+            Senha
+            <input name="password" type="password" required autofocus />
+          </label>
+          <button class="wish-button" type="submit">Entrar</button>
+        </form>
+        <p class="admin-help">Senha local padrão: <strong>mel2025</strong>. Em produção, use a variável `ADMIN_PASSWORD`.</p>
+      </section>
+      {% else %}
+      <form action="{{ url_for('admin_logout') }}" method="post" class="logout-form">
+        <button type="submit">Sair do painel</button>
+      </form>
+
+      <section class="admin-grid">
+        <article class="admin-card">
+          <h2>Adicionar foto</h2>
+          <form action="{{ url_for('add_photo') }}" method="post" enctype="multipart/form-data">
+            <label>Título <input name="title" placeholder="Jantar especial" /></label>
+            <label>Legenda <input name="caption" placeholder="Uma memória linda do nosso universo." /></label>
+            <label>Data <input name="memory_date" type="date" value="{{ today }}" /></label>
+            <label>Arquivo <input name="file" type="file" accept="image/*" required /></label>
+            <button class="wish-button" type="submit">Adicionar foto</button>
+          </form>
+        </article>
+
+        <article class="admin-card">
+          <h2>Adicionar vídeo</h2>
+          <form action="{{ url_for('add_video') }}" method="post" enctype="multipart/form-data">
+            <label>Título <input name="title" placeholder="Nosso vídeo" /></label>
+            <label>Legenda <input name="caption" placeholder="Vídeo do nosso amor." /></label>
+            <label>Data <input name="memory_date" type="date" value="{{ today }}" /></label>
+            <label>Arquivo <input name="file" type="file" accept="video/*" required /></label>
+            <button class="wish-button" type="submit">Adicionar vídeo</button>
+          </form>
+        </article>
+
+        <article class="admin-card">
+          <h2>Adicionar evento</h2>
+          <form action="{{ url_for('add_event') }}" method="post">
+            <label>Título <input name="title" required placeholder="Novo momento importante" /></label>
+            <label>Descrição <textarea name="description" required placeholder="Conte o que aconteceu."></textarea></label>
+            <label>Data <input name="event_date" type="date" value="{{ today }}" required /></label>
+            <button class="wish-button" type="submit">Adicionar evento</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="admin-card">
+        <h2>Fotos salvas</h2>
+        <div class="admin-list">
+          {% for photo in photos %}
+          <article>
+            <img src="{{ asset_url(photo.filename) }}" alt="{{ photo.title }}" />
+            <div>
+              <strong>{{ photo.title }}</strong>
+              <p>{{ photo.caption }}</p>
+              <small>{{ photo.memory_date }}</small>
+            </div>
+            <form action="{{ url_for('delete_item', kind='photo', item_id=photo.id) }}" method="post">
+              <button type="submit">Excluir</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Vídeos salvos</h2>
+        <div class="admin-list">
+          {% for video in videos %}
+          <article>
+            <video src="{{ asset_url(video.filename) }}" controls></video>
+            <div>
+              <strong>{{ video.title }}</strong>
+              <p>{{ video.caption }}</p>
+              <small>{{ video.memory_date }}</small>
+            </div>
+            <form action="{{ url_for('delete_item', kind='video', item_id=video.id) }}" method="post">
+              <button type="submit">Excluir</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Eventos</h2>
+        <div class="admin-list admin-list--text">
+          {% for event in events %}
+          <article>
+            <div>
+              <strong>{{ event.title }}</strong>
+              <p>{{ event.description }}</p>
+              <small>{{ event.event_date }}</small>
+            </div>
+            <form action="{{ url_for('delete_item', kind='event', item_id=event.id) }}" method="post">
+              <button type="submit">Excluir</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Diário</h2>
+        <div class="admin-list admin-list--text">
+          {% for entry in diary_entries %}
+          <article>
+            <div>
+              <strong>{{ entry.author }}</strong>
+              <p>{{ entry.message }}</p>
+              <small>{{ entry.entry_date }}</small>
+            </div>
+            <form action="{{ url_for('delete_item', kind='diary', item_id=entry.id) }}" method="post">
+              <button type="submit">Excluir</button>
+            </form>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+    </main>
+  </body>
+</html>
