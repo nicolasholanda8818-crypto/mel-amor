@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Entrar no Universo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body class="theme-galaxy">
+    <main class="login-shell">
+      <section class="login-card">
+        <h1>Entrar no Universo</h1>
+        <p>Informe a senha para acessar todas as funcionalidades do site.</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-list">
+          {% for category, message in messages %}
+          <p class="flash flash--{{ category }}">{{ message }}</p>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        <form action="{{ url_for('login') }}" method="post">
+          <input type="hidden" name="next" value="{{ next }}" />
+          <label>
+            Senha
+            <input name="password" type="password" required autocomplete="current-password" />
+          </label>
+          <button class="wish-button" type="submit">Entrar no Site</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

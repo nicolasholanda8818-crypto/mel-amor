@@ -7,6 +7,7 @@ from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 
+import bcrypt
 from flask import (
     Flask,
     Response,
@@ -68,6 +69,11 @@ THEMES = [
     ("garden", "🌹 Jardim do Amor"),
     ("dream", "🌙 Noite dos Sonhos"),
 ]
+
+AUTH_PASSWORD_HASH = os.environ.get(
+    "AUTH_PASSWORD_HASH",
+    "$2b$12$R28uC2KMaCXU.PcdAP71TOAka5.SJUQTwM99S3sjs.Od0JTEFN16q",
+).encode("utf-8")
 
 
 def get_db():
@@ -694,12 +700,68 @@ def asset_url(filename):
 app.jinja_env.globals["asset_url"] = asset_url
 
 
+def is_authenticated():
+    return bool(session.get("authenticated", False))
+
+
 def require_admin():
-    return True
+    return is_authenticated()
+
+
+def validate_password(password):
+    if not password:
+        return False
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), AUTH_PASSWORD_HASH)
+    except ValueError:
+        return False
+
+
+def login_redirect_target():
+    return request.args.get("next") or url_for("index")
+
+
+@app.before_request
+def enforce_login():
+    allowed_endpoints = {
+        "login",
+        "logout",
+        "static",
+        "uploaded_file",
+    }
+    if request.endpoint in allowed_endpoints:
+        return None
+    if request.path.startswith("/static/") or request.path.startswith("/uploaded/"):
+        return None
+    if not is_authenticated():
+        return redirect(url_for("login", next=request.path))
 
 
 def active_profile_name():
     return session.get("current_profile", "Nicolas")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        password = (request.form.get("password") or "").strip()
+        if validate_password(password):
+            session["authenticated"] = True
+            flash("Acesso liberado.", "success")
+            return redirect(request.form.get("next") or url_for("index"))
+        flash("Senha inválida. Tente novamente.", "error")
+
+    if is_authenticated():
+        return redirect(url_for("index"))
+
+    return render_template("login.html", next=request.args.get("next", url_for("index")))
+
+
+@app.route("/logout")
+def logout():
+    session.pop("authenticated", None)
+    flash("Sessão finalizada.", "success")
+    return redirect(url_for("login"))
 
 
 @app.route("/")
