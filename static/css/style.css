@@ -215,6 +215,12 @@ button {
   text-decoration: none;
 }
 
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .hidden {
   display: none;
 }

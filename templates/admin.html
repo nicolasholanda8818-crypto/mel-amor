@@ -19,7 +19,10 @@
           <p class="section-kicker">Painel simples</p>
           <h1>Universo da Mel</h1>
         </div>
-        <a class="admin-link" href="{{ url_for('index') }}">Voltar ao site</a>
+        <div class="admin-header-actions">
+          <a class="admin-link" href="{{ url_for('index') }}">Voltar ao site</a>
+          <a class="admin-link" href="{{ url_for('logout') }}">🔓 Sair</a>
+        </div>
       </header>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
