@@ -18,6 +18,9 @@
         <div>
           <p class="section-kicker">Painel simples</p>
           <h1>Universo da Mel</h1>
+          {% if authenticated %}
+          <p class="admin-auth-status">Autenticado como <strong>{{ current_profile.name }}</strong></p>
+          {% endif %}
         </div>
         <div class="admin-header-actions">
           <a class="admin-link" href="{{ url_for('index') }}">Voltar ao site</a>

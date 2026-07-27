@@ -48,6 +48,9 @@
         <a href="{{ url_for('admin') }}">⚙️ Painel</a>
         <a href="{{ url_for('logout') }}">🔓 Sair</a>
       </nav>
+      {% if authenticated %}
+      <div class="auth-banner">Acesso autorizado como <strong>{{ current_profile.name }}</strong></div>
+      {% endif %}
 
       <section class="hero section-panel" id="inicio">
         <div class="hero__content">
