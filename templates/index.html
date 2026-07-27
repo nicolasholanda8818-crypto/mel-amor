@@ -98,6 +98,10 @@
             <span>Perfil ativo</span>
             <strong id="activeProfileLabel" style="color: {{ current_profile.color }}">{{ current_profile.name }}</strong>
           </article>
+          <article>
+            <span>Perfil sincronizado</span>
+            <strong id="sharedActiveProfileLabel" style="color: {{ shared_active_profile_color }}">{{ shared_active_profile }}</strong>
+          </article>
         </div>
         <form class="profile-switcher" action="{{ url_for('select_profile') }}" method="post">
           <input type="hidden" name="next" value="{{ url_for('index') }}#live-now" />
@@ -115,10 +119,10 @@
           <article><span>Dias juntos</span><strong id="statsDays">0</strong></article>
           <article><span>Horas juntos</span><strong id="statsHours">0</strong></article>
           <article><span>Minutos juntos</span><strong id="statsMinutes">0</strong></article>
-          <article><span>Fotos</span><strong>{{ stats.photos }}</strong></article>
-          <article><span>Vídeos</span><strong>{{ stats.videos }}</strong></article>
-          <article><span>Cartas</span><strong>{{ stats.capsules }}</strong></article>
-          <article><span>Memórias</span><strong>{{ stats.memories }}</strong></article>
+          <article><span>Fotos</span><strong id="statPhotos">{{ stats.photos }}</strong></article>
+          <article><span>Vídeos</span><strong id="statVideos">{{ stats.videos }}</strong></article>
+          <article><span>Cartas</span><strong id="statCapsules">{{ stats.capsules }}</strong></article>
+          <article><span>Memórias</span><strong id="statMemories">{{ stats.memories }}</strong></article>
         </div>
         <div class="mimi-note">
           <span aria-hidden="true">🌸</span>

@@ -84,6 +84,8 @@ let matchedCards = 0;
 let letterStarted = false;
 let currentTrack = 0;
 let recentPhraseIndexes = [];
+let syncConnection = null;
+let latestSyncTimestamp = null;
 
 function buildRomanticPhrases() {
   const starts = [
@@ -144,6 +146,7 @@ function startExperience() {
   startGallery();
   updateRelationshipCounter();
   updateRealClock();
+  startSync();
   burstHearts(26);
 
   setTimeout(() => {
@@ -316,6 +319,60 @@ function updateRelationshipCounter() {
   if (statsDays) statsDays.textContent = days;
   if (statsHours) statsHours.textContent = Math.floor(totalSeconds / 3600);
   if (statsMinutes) statsMinutes.textContent = Math.floor(totalSeconds / 60);
+}
+
+function refreshSyncState(data) {
+  if (data.active_profile && document.querySelector("#sharedActiveProfileLabel")) {
+    document.querySelector("#sharedActiveProfileLabel").textContent = data.active_profile;
+  }
+  if (data.updated_at) {
+    latestSyncTimestamp = data.updated_at;
+  }
+}
+
+function hydrateStats(stats) {
+  if (!stats) return;
+  document.querySelector("#statPhotos")?.textContent = stats.photos ?? "0";
+  document.querySelector("#statVideos")?.textContent = stats.videos ?? "0";
+  document.querySelector("#statCapsules")?.textContent = stats.capsules ?? "0";
+  document.querySelector("#statMemories")?.textContent = stats.memories ?? "0";
+}
+
+function fetchSyncState() {
+  fetch("/sync-state")
+    .then((response) => response.json())
+    .then((payload) => {
+      if (!payload.ok) return;
+      refreshSyncState(payload);
+      hydrateStats(payload.stats);
+    })
+    .catch(() => {
+      console.warn("Falha ao buscar estado sincronizado.");
+    });
+}
+
+function startSync() {
+  if (!window.EventSource) {
+    return;
+  }
+  if (syncConnection) {
+    syncConnection.close();
+  }
+
+  fetchSyncState();
+
+  syncConnection = new EventSource("/sync-events");
+  syncConnection.addEventListener("data_update", (event) => {
+    const payload = JSON.parse(event.data);
+    refreshSyncState(payload);
+    showToast("Atualizações recebidas em tempo real.");
+    fetchSyncState();
+  });
+  syncConnection.onerror = () => {
+    showToast("Reconectando sincronização em tempo real...");
+    syncConnection.close();
+    setTimeout(startSync, 4000);
+  };
 }
 
 function burstHearts(amount = 18) {

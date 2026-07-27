@@ -4,7 +4,7 @@
 
 Construir um universo digital vivo para Nicolas e Mel, com prioridade absoluta para celular. A experiência principal é simples de usar, organizada e leve. O site de aniversário da Mel continua preservado como memória histórica separada, acessada pelo calendário em `02/06/2026`.
 
-O projeto também funciona como plataforma compartilhada: conteúdos cadastrados por Nicolas, Mel, Eduardo ou futuros usuários autorizados ficam disponíveis para todos.
+O projeto também funciona como plataforma compartilhada: conteúdos cadastrados por Nicolas, Mel ou futuros usuários autorizados ficam disponíveis para todos.
 
 ## Regra de experiências
 

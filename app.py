@@ -2,9 +2,11 @@ import os
 import json
 import hashlib
 import sqlite3
+import threading
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from queue import Empty, Queue
 from uuid import uuid4
 
 import bcrypt
@@ -40,6 +42,11 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "universo-da-mel-local")
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=(os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"),
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
@@ -70,10 +77,21 @@ THEMES = [
     ("dream", "🌙 Noite dos Sonhos"),
 ]
 
-AUTH_PASSWORD_HASH = os.environ.get(
-    "AUTH_PASSWORD_HASH",
-    "$2b$12$R28uC2KMaCXU.PcdAP71TOAka5.SJUQTwM99S3sjs.Od0JTEFN16q",
+ALLOWED_USERS = {"Nicolas", "Mel"}
+LOGIN_PASSWORD_HASH = os.environ.get(
+    "LOGIN_PASSWORD_HASH",
+    "$2b$12$Iuxcr01.Htv3u/dMLT/1cOjE9SB9gfFCgAphqbKIssA1VV7EA6Jjm",
 ).encode("utf-8")
+
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_SECONDS = 300
+
+clients = []
+clients_lock = threading.Lock()
+sync_state = {
+    "active_profile": "Nicolas",
+    "updated_at": datetime.now().isoformat(timespec="seconds"),
+}
 
 
 def get_db():
@@ -563,7 +581,6 @@ def seed_profiles():
     defaults = [
         ("Nicolas", "#5be7ff"),
         ("Mel", "#ff69b4"),
-        ("Eduardo", "#ffd36a"),
     ]
     for name, color in defaults:
         exists = query_one("SELECT id FROM profiles WHERE name = ?", (name,))
@@ -575,6 +592,31 @@ def seed_profiles():
                 """,
                 (name, color, "", now),
             )
+
+    if USE_POSTGRES:
+        execute("DELETE FROM favorites WHERE profile_name NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM photos WHERE created_by NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM videos WHERE created_by NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM audio_messages WHERE created_by NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM music_tracks WHERE created_by NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM memory_mural WHERE created_by NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM story_chapters WHERE created_by NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM time_capsules WHERE created_by NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM events WHERE created_by NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM diary WHERE author NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM profiles WHERE name NOT IN (%s, %s)", tuple(ALLOWED_USERS))
+    else:
+        execute("DELETE FROM favorites WHERE profile_name NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM photos WHERE created_by NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM videos WHERE created_by NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM audio_messages WHERE created_by NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM music_tracks WHERE created_by NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM memory_mural WHERE created_by NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM story_chapters WHERE created_by NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM time_capsules WHERE created_by NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM events WHERE created_by NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM diary WHERE author NOT IN (?, ?)", tuple(ALLOWED_USERS))
+        execute("DELETE FROM profiles WHERE name NOT IN (?, ?)", tuple(ALLOWED_USERS))
 
 
 def seed_settings():
@@ -700,8 +742,57 @@ def asset_url(filename):
 app.jinja_env.globals["asset_url"] = asset_url
 
 
+def broadcast_event(event, data):
+    payload = {"event": event, "data": data}
+    with clients_lock:
+        for queue in list(clients):
+            try:
+                queue.put(payload, block=False)
+            except Exception:
+                pass
+
+
+def sse_subscribe():
+    queue = Queue()
+    with clients_lock:
+        clients.append(queue)
+    return queue
+
+
+def sse_unsubscribe(queue):
+    with clients_lock:
+        if queue in clients:
+            clients.remove(queue)
+
+
+def event_stream(queue):
+    try:
+        while True:
+            try:
+                payload = queue.get(timeout=25)
+            except Empty:
+                yield ": keepalive\n\n"
+                continue
+            yield f"event: {payload['event']}\n"
+            yield f"data: {json.dumps(payload['data'], ensure_ascii=False)}\n\n"
+    finally:
+        sse_unsubscribe(queue)
+
+
+def notify_sync_change(change_type, payload=None):
+    sync_state["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    event_data = {
+        "change_type": change_type,
+        "active_profile": sync_state["active_profile"],
+        "updated_at": sync_state["updated_at"],
+    }
+    if payload is not None:
+        event_data["payload"] = payload
+    broadcast_event("data_update", event_data)
+
+
 def is_authenticated():
-    return bool(session.get("authenticated", False))
+    return bool(session.get("authenticated"))
 
 
 def require_admin():
@@ -712,7 +803,7 @@ def validate_password(password):
     if not password:
         return False
     try:
-        return bcrypt.checkpw(password.encode("utf-8"), AUTH_PASSWORD_HASH)
+        return bcrypt.checkpw(password.encode("utf-8"), LOGIN_PASSWORD_HASH)
     except ValueError:
         return False
 
@@ -745,11 +836,33 @@ def active_profile_name():
 def login():
     if request.method == "POST":
         password = (request.form.get("password") or "").strip()
+        attempts = session.get("login_attempts", 0)
+        lockout_until = session.get("lockout_until")
+
+        if lockout_until:
+            if datetime.fromisoformat(lockout_until) > datetime.now():
+                flash("Tentativas excedidas. Tente novamente mais tarde.", "error")
+                return render_template("login.html", next=request.args.get("next", url_for("index")))
+            session.pop("lockout_until", None)
+            session["login_attempts"] = 0
+
         if validate_password(password):
             session["authenticated"] = True
+            session["current_profile"] = session.get("current_profile", "Nicolas")
+            session["login_attempts"] = 0
+            session.pop("lockout_until", None)
+            session.permanent = True
             flash("Acesso liberado.", "success")
             return redirect(request.form.get("next") or url_for("index"))
-        flash("Senha inválida. Tente novamente.", "error")
+
+        attempts += 1
+        session["login_attempts"] = attempts
+        if attempts >= LOGIN_MAX_ATTEMPTS:
+            lockout_time = datetime.now() + timedelta(seconds=LOGIN_LOCKOUT_SECONDS)
+            session["lockout_until"] = lockout_time.isoformat()
+            flash("Muitas tentativas. Aguarde alguns minutos e tente novamente.", "error")
+        else:
+            flash("Senha inválida. Tente novamente.", "error")
 
     if is_authenticated():
         return redirect(url_for("index"))
@@ -782,6 +895,11 @@ def index():
     profiles = query_all("SELECT * FROM profiles ORDER BY name ASC")
     current_profile_name = active_profile_name()
     current_profile = query_one("SELECT * FROM profiles WHERE name = ?", (current_profile_name,)) or profiles[0]
+    shared_active_profile = sync_state["active_profile"]
+    shared_active_profile_color = next(
+        (profile["color"] for profile in profiles if profile["name"] == shared_active_profile),
+        current_profile["color"],
+    )
     favorite_music_ids = {
         row["item_id"]
         for row in query_all(
@@ -821,12 +939,109 @@ def index():
         stats=stats,
         event_payloads=[dict(row) for row in events],
         today=today.isoformat(),
+        shared_active_profile=shared_active_profile,
+        shared_active_profile_color=shared_active_profile_color,
     )
 
 
 @app.route("/uploaded/<path:filename>")
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_ROOT, filename)
+
+
+@app.route("/sync-events")
+def sync_events():
+    queue = sse_subscribe()
+    return Response(event_stream(queue), mimetype="text/event-stream")
+
+
+@app.route("/sync-state")
+def sync_state_route():
+    if not is_authenticated():
+        return {"ok": False, "error": "Unauthorized"}, 401
+
+    photos = [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "caption": row["caption"],
+            "filename": asset_url(row["filename"]),
+            "thumb_filename": asset_url(row["thumb_filename"] or row["filename"]),
+            "memory_date": row["memory_date"],
+        }
+        for row in query_all("SELECT * FROM photos ORDER BY memory_date DESC, id DESC LIMIT 40")
+    ]
+    videos = [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "caption": row["caption"],
+            "filename": asset_url(row["filename"]),
+            "preview_filename": asset_url(row["preview_filename"] or row["filename"]),
+            "memory_date": row["memory_date"],
+        }
+        for row in query_all("SELECT * FROM videos ORDER BY memory_date DESC, id DESC LIMIT 20")
+    ]
+    diary_entries = [
+        {
+            "id": row["id"],
+            "author": row["author"],
+            "message": row["message"],
+            "reply_to": row["reply_to"],
+            "entry_date": row["entry_date"],
+        }
+        for row in query_all("SELECT * FROM diary ORDER BY entry_date DESC, id DESC LIMIT 20")
+    ]
+    events = [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "description": row["description"],
+            "event_date": row["event_date"],
+        }
+        for row in query_all("SELECT * FROM events ORDER BY event_date ASC, id ASC LIMIT 30")
+    ]
+    capsules = [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "message": row["message"],
+            "open_date": row["open_date"],
+        }
+        for row in query_all("SELECT * FROM time_capsules ORDER BY open_date ASC, id ASC LIMIT 20")
+    ]
+    music_tracks = [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "url": asset_url(row["filename"]),
+            "favorite": bool(row["is_favorite"]),
+        }
+        for row in query_all("SELECT * FROM music_tracks ORDER BY is_favorite DESC, id ASC LIMIT 40")
+    ]
+    settings = get_settings()
+    stats = {
+        "photos": query_one("SELECT COUNT(*) AS total FROM photos")["total"],
+        "videos": query_one("SELECT COUNT(*) AS total FROM videos")["total"],
+        "diary": query_one("SELECT COUNT(*) AS total FROM diary")["total"],
+        "music": query_one("SELECT COUNT(*) AS total FROM music_tracks")["total"],
+        "events": query_one("SELECT COUNT(*) AS total FROM events")["total"],
+        "capsules": query_one("SELECT COUNT(*) AS total FROM time_capsules")["total"],
+    }
+    stats["memories"] = stats["photos"] + stats["videos"] + stats["diary"] + stats["events"]
+    return {
+        "ok": True,
+        "active_profile": sync_state["active_profile"],
+        "updated_at": sync_state["updated_at"],
+        "settings": settings,
+        "stats": stats,
+        "photos": photos,
+        "videos": videos,
+        "diary_entries": diary_entries,
+        "events": events,
+        "capsules": capsules,
+        "music_tracks": music_tracks,
+    }
 
 
 @app.route("/memorias/aniversario-mel")
@@ -838,9 +1053,15 @@ def birthday_memory():
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
+    current_profile_name = active_profile_name()
+    current_profile = query_one("SELECT * FROM profiles WHERE name = ?", (current_profile_name,)) or {
+        "name": current_profile_name,
+        "color": "#ff69b4",
+    }
     return render_template(
         "admin.html",
-        authenticated=True,
+        authenticated=is_authenticated(),
+        current_profile=current_profile,
         photos=query_all("SELECT * FROM photos ORDER BY id DESC LIMIT 120"),
         videos=query_all("SELECT * FROM videos ORDER BY id DESC LIMIT 80"),
         music_tracks=query_all("SELECT * FROM music_tracks ORDER BY is_favorite DESC, id DESC LIMIT 120"),
@@ -867,6 +1088,15 @@ def select_profile():
     exists = query_one("SELECT name FROM profiles WHERE name = ?", (profile_name,))
     if exists:
         session["current_profile"] = profile_name
+        sync_state["active_profile"] = profile_name
+        sync_state["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        broadcast_event(
+            "profile_update",
+            {
+                "active_profile": profile_name,
+                "updated_at": sync_state["updated_at"],
+            },
+        )
     return redirect(request.form.get("next") or url_for("index"))
 
 
@@ -897,6 +1127,7 @@ def update_profile(profile_id):
             profile_id,
         ),
     )
+    notify_sync_change("profile_updated", {"profile_id": profile_id})
     flash("Perfil atualizado.", "success")
     return redirect(url_for("admin"))
 
@@ -907,6 +1138,9 @@ def add_profile():
         return redirect(url_for("admin"))
 
     name = (request.form.get("name") or "").strip()
+    if name not in ALLOWED_USERS:
+        flash("Somente Nicolas e Mel podem ser autorizados no momento.", "error")
+        return redirect(url_for("admin"))
     if not name:
         flash("Informe o nome do usuário.", "error")
         return redirect(url_for("admin"))
@@ -928,6 +1162,7 @@ def add_profile():
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
+        notify_sync_change("profile_list_updated")
         flash("Usuário autorizado adicionado.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -969,6 +1204,7 @@ def update_settings():
         flash(str(error), "error")
         return redirect(url_for("admin"))
 
+    notify_sync_change("settings_updated", {"theme": request.form.get("theme")})
     flash("Personalização atualizada.", "success")
     return redirect(url_for("admin"))
 
@@ -1040,6 +1276,8 @@ def restore_backup():
                 )
         connection.commit()
 
+    seed_profiles()
+    notify_sync_change("backup_restored")
     flash("Backup restaurado.", "success")
     return redirect(url_for("admin"))
 
@@ -1072,6 +1310,7 @@ def add_photo():
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
+        notify_sync_change("photo_added")
         flash("Foto adicionada.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -1105,6 +1344,7 @@ def add_video():
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
+        notify_sync_change("video_added")
         flash("Vídeo adicionado.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -1136,6 +1376,7 @@ def add_audio():
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
+        notify_sync_change("audio_added")
         flash("Áudio adicionado.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -1166,6 +1407,7 @@ def add_music():
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
+        notify_sync_change("music_added")
         flash("Música adicionada à playlist.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -1189,6 +1431,7 @@ def toggle_favorite():
     )
     if existing:
         execute("DELETE FROM favorites WHERE id = ?", (existing["id"],))
+        notify_sync_change("favorite_toggled", {"item_id": item_id, "favorite": False})
         return {"ok": True, "favorite": False}
 
     execute(
@@ -1198,6 +1441,7 @@ def toggle_favorite():
         """,
         (profile_name, kind, item_id, datetime.now().isoformat(timespec="seconds")),
     )
+    notify_sync_change("favorite_toggled", {"item_id": item_id, "favorite": True})
     return {"ok": True, "favorite": True}
 
 
@@ -1232,6 +1476,7 @@ def add_mural_memory():
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
+        notify_sync_change("mural_updated")
         flash("Memória adicionada ao mural.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -1253,6 +1498,7 @@ def add_event():
             datetime.now().isoformat(timespec="seconds"),
         ),
     )
+    notify_sync_change("event_added")
     flash("Evento adicionado.", "success")
     return redirect(url_for("admin"))
 
@@ -1276,6 +1522,7 @@ def add_chapter():
             datetime.now().isoformat(timespec="seconds"),
         ),
     )
+    notify_sync_change("chapter_added")
     flash("Capítulo adicionado.", "success")
     return redirect(url_for("admin"))
 
@@ -1298,6 +1545,7 @@ def add_diary():
                 datetime.now().isoformat(timespec="seconds"),
             ),
         )
+        notify_sync_change("diary_added")
     return redirect(request.form.get("next") or url_for("index") + "#diary")
 
 
@@ -1324,6 +1572,7 @@ def edit_diary(entry_id):
             entry_id,
         ),
     )
+    notify_sync_change("diary_updated", {"entry_id": entry_id})
     flash("Mensagem atualizada.", "success")
     return redirect(url_for("admin"))
 
@@ -1341,6 +1590,7 @@ def add_time_capsule():
             """,
             (title, message, open_date, active_profile_name(), datetime.now().isoformat(timespec="seconds")),
         )
+        notify_sync_change("capsule_added")
         flash("Cápsula do tempo criada.", "success")
     return redirect(request.form.get("next") or url_for("index") + "#letters")
 
@@ -1369,6 +1619,7 @@ def delete_item(kind, item_id):
     if row and kind in {"photo", "video", "audio", "music"} and "filename" in row.keys():
         remove_static_file(row["filename"])
     execute(f"DELETE FROM {table} WHERE id = ?", (item_id,))
+    notify_sync_change("item_deleted", {"kind": kind, "item_id": item_id})
     flash("Item excluído.", "success")
     return redirect(url_for("admin"))
 
